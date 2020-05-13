@@ -12,7 +12,7 @@ def rescale_bb(bounding_box, size):
     """Rescale boudning box to fixed size."""
     img = Image.fromarray(bouding_box)
     new_img = img.resize(size) if isinstance(size, tuple) else img.resize((size, size))
-    return numpy.array(new_img)
+    return np.array(new_img)
 
 
 def calc_distance(vector1, vector2):
