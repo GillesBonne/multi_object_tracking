@@ -10,6 +10,7 @@ import tensorflow_addons as tfa
 import matplotlib.pyplot as plt
 
 from model import TrackNetModel
+from utils import MOTMetric
 from utils import rescale_bb, calc_distance
 
 
@@ -32,15 +33,7 @@ def get_batch(video, obj, batch_size):
     # NOTE: MAKE SURE THE BOUDING BOXES HAVE THE SAME (SQUARE) SIZE
     bounding_boxes = [rescale_bb(bb, size) for bb in bounding_boxes]
 
-    return bounding_boxes, labels
-
-
-def test_batch():
-    """Return some test data."""
-    # [anchor, positive, positive, negative, negative]
-    bounding_boxes = np.ones((5,128,128,3), dtype=int)
-    labels = np.array([13, 13, 13, 87, 21])
-    return bounding_boxes, labels
+    return bounding_boxes, object_ids
 
 
 def train_model(model, epochs, batch_size, learning_rate):
@@ -60,26 +53,22 @@ def train_model(model, epochs, batch_size, learning_rate):
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     # Define the metrics
-    train_loss = tf.keras.metrics.Mean()    
+    train_loss = tf.keras.metrics.Mean()  
 
     # Create empty list for the metrics
     train_loss_results = []
-    train_accuracy_results = []
-
-    dataset = ['video1', 'video2', 'video3']  # REMOVE
-    objects = 10  # REMOVE
+    mot_metric_results = []
 
     # Training loop
     for epoch in range(epochs):
         for video in range(len(dataset)):
             for obj in range(objects):
                 # Get batch with anchor, positive and negative samples
-                bounding_boxes, labels = test_batch()  # REMOVE
-                #bounding_boxes, labels = get_batch(video, obj, batch_size)
+                bounding_boxes, object_ids = get_batch(video, obj, batch_size)
 
                 with tf.GradientTape() as tape:
-                    predictions = model(bounding_boxes, training=True)
-                    loss = loss_object(labels, predictions)
+                    embeddings = model(bounding_boxes, training=True)
+                    loss = loss_object(object_ids, embeddings)
 
                 gradients = tape.gradient(loss, model.trainable_variables)
                 optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -87,13 +76,16 @@ def train_model(model, epochs, batch_size, learning_rate):
                 # Track progress
                 train_loss.update_state(loss)
 
-        # End of epoch
+        # Run validation program on sequence and get score
+        MOTA_score = run_validation()  # TO DO: implement this function
+
         if epoch % 2 == 0:
             print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}".format(
-                epoch, train_loss.result(), 0))  # TO DO: Create metric for accuracy
+                epoch, train_loss.result(), MOTA_score))
 
+        # Append the results
         train_loss_results.append(train_loss.result())
-        train_accuracy_results.append(0)  # CHANGE THIS
+        mot_metric_results.append(MOTA_score)
 
     # Visualize the results of training
     fig, axes = plt.subplots(2, sharex=True, figsize=(9, 6))
@@ -104,16 +96,11 @@ def train_model(model, epochs, batch_size, learning_rate):
 
     axes[1].set_ylabel("Accuracy", fontsize=12)
     axes[1].set_xlabel("Epoch", fontsize=12)
-    axes[1].plot(train_accuracy_results)
+    axes[1].plot(mot_metric_results)
     plt.show()
 
 
 if __name__ == "__main__":
     # Main function
     train_model(TrackNetModel, epochs=10, batch_size=3, learning_rate=0.001)
-
-
-
-
-
 
