@@ -23,38 +23,38 @@ class MOTMetric():
         self.accumulator = mm.MOTAccumulator(auto_id=auto_id)
         self.metric_host = mm.metrics.create()
 
-    def update(self, object_ids, hypothesis_ids, objects, hypotheses, frameid=None):
+    def update(self, obj_ids, hyp_ids, obj_bbox, hyp_bbox, frameid=None):
         """ Update the accumulator with frame objects and hypotheses.
         
       Args:
-        object_ids: List with object ids with format [id1, id2, ..., idn]
-        hypothesis_ids: List with hypothesis ids with format [id1, id2, ..., idn]
-        objects: Numpy array with object bounding boxes (x1, y1, x2, y2) in rows.
-        hypotheses: Numpy array with hypothesis bounding boxes (x1, y1, x2, y2) in rows.
+        obj_ids: List with object ids with format [id1, id2, ..., idn]
+        hyp_ids: List with hypothesis ids with format [id1, id2, ..., idn]
+        obj_bbox: Numpy array with object bounding boxes (x1, y1, x2, y2) in rows.
+        hyp_bbox: Numpy array with hypothesis bounding boxes (x1, y1, x2, y2) in rows.
         frameid: Frame id when auto_id is set to False.
       """
         # Convert from (x1, y1, x2, y2) to (x, y, w, h) format
-        for i, row in enumerate(objects):
-            width = objects[i,2] - objects[i,0]
-            height = objects[i,3] - objects[i,1]
+        for i, row in enumerate(obj_bbox):
+            width = obj_bbox[i,2] - obj_bbox[i,0]
+            height = obj_bbox[i,3] - obj_bbox[i,1]
             
             assert width >= 0, 'Error in bounding box values!'
             assert height >= 0, 'Error in bounding box values!'
-            objects[i,2:4] = [width, height]
+            obj_bbox[i,2:4] = [width, height]
 
-        for i, row in enumerate(hypotheses):
-            width = hypotheses[i,2] - hypotheses[i,0]
-            height = hypotheses[i,3] - hypotheses[i,1]
+        for i, row in enumerate(hyp_bbox):
+            width = hyp_bbox[i,2] - hyp_bbox[i,0]
+            height = hyp_bbox[i,3] - hyp_bbox[i,1]
             
             assert width >= 0, 'Error in bounding box values!'
             assert height >= 0, 'Error in bounding box values!'
-            hypotheses[i,2:4] = [width, height]
+            hyp_bbox[i,2:4] = [width, height]
 
         # Calculate the distance matrix
-        distances = mm.distances.iou_matrix(objects, hypotheses, max_iou=1.)
+        distances = mm.distances.iou_matrix(obj_bbox, hyp_bbox, max_iou=1.)
 
         # Update the accumulator
-        self.accumulator.update(object_ids, hypothesis_ids, distances, frameid=frameid)
+        self.accumulator.update(obj_ids, hyp_ids, distances, frameid=frameid)
 
     def get_MOTA(self):
         """Return the Multi Object Tracking Accuracy."""
