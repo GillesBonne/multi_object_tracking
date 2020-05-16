@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import pickle
 
 import h5py
 import imageio
@@ -27,7 +28,7 @@ export_only_first_sequence = True
 # Naming of export files.
 dataset_name = 'kitti_first_seq'
 filename_export_images = '_'.join([dataset_name, 'images.h5'])
-filename_export_labels = '_'.join([dataset_name, 'labels.json'])
+filename_export_labels = '_'.join([dataset_name, 'labels.bin'])
 
 # Get labels and write uncompressed images to h5 file.
 with h5py.File(filename_export_images, 'w') as hf_images:
@@ -57,6 +58,11 @@ with h5py.File(filename_export_images, 'w') as hf_images:
         df_labels = df_labels.drop(columns=['truncated', 'occluded', 'alpha',
                                             'dim_heigth', 'dim_width', 'dim_length',
                                             'loc_x', 'loc_y', 'loc_z', 'rotation_y'])
+
+        # Get track_ids.
+        track_ids = sorted(np.array(list(set(df_labels['track_id']))))
+        frames_per_id_dict = {}
+        [frames_per_id_dict.setdefault(id, []) for id in track_ids]
 
         # Read the first frame of the sequence to find the shape.
         im = imageio.imread(os.path.join(images_dir, images[0]))
@@ -91,6 +97,9 @@ with h5py.File(filename_export_images, 'w') as hf_images:
                 # Initialize object specific label data structure.
                 object_labels_data = {}
 
+                # Track in which frames each object is in.
+                frames_per_id_dict[int(row['track_id'])].append(frame_num)
+
                 # Save all the necessary labels.
                 object_labels_data['track_id'] = int(row['track_id'])
                 object_labels_data['type'] = row['type']
@@ -116,6 +125,9 @@ with h5py.File(filename_export_images, 'w') as hf_images:
         # Write images to .h5 file.
         dset[first:, :, :, :] = ims
 
+        # Save in which frame a certain object is in.
+        seq_labels_data['frames_per_id'] = frames_per_id_dict
+
         # Save labels for the current sequence.
         labels_data[seq_name] = seq_labels_data
 
@@ -123,6 +135,5 @@ with h5py.File(filename_export_images, 'w') as hf_images:
         if export_only_first_sequence:
             break
 
-# Export labels to json file.
-with open(filename_export_labels, 'w') as json_labels:
-    json.dump(labels_data, json_labels, indent=4)
+with open(filename_export_labels, 'wb') as file:
+    pickle.dump(labels_data, file)
