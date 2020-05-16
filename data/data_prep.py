@@ -135,5 +135,6 @@ with h5py.File(filename_export_images, 'w') as hf_images:
         if export_only_first_sequence:
             break
 
+# Export labels to Python pickle file.
 with open(filename_export_labels, 'wb') as file:
     pickle.dump(labels_data, file)
