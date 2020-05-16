@@ -1,17 +1,14 @@
 """Train loop for the single object tracker."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
+import matplotlib.pyplot as plt
 import numpy as np
+
 import tensorflow as tf
 import tensorflow_addons as tfa
-import matplotlib.pyplot as plt
-
 from model import TrackNetModel
-from utils import MOTMetric
-from utils import rescale_bb, calc_distance
+from utils import MOTMetric, calc_distance, rescale_bb
 
 
 def get_batch(video, obj, batch_size):
@@ -19,15 +16,15 @@ def get_batch(video, obj, batch_size):
 
   Args:
     video: Current video number.
-    obj: Current object id for the anchor bouding box. 
+    obj: Current object id for the anchor bouding box.
     batch_size: Number of samples in the batch, with anchor and
       number of positive and negative samples.
 
   Returns:
-    The labels and bouding boxes of this batch. Labels must 
-    contain ids for the bouding boxes where the anchor and the 
-    positive samples must have the same id and the negative 
-    samples should have different ids. 
+    The labels and bouding boxes of this batch. Labels must
+    contain ids for the bouding boxes where the anchor and the
+    positive samples must have the same id and the negative
+    samples should have different ids.
   """
     # TO DO: LOAD BATCHES
     # NOTE: MAKE SURE THE BOUDING BOXES HAVE THE SAME (SQUARE) SIZE
@@ -53,7 +50,7 @@ def train_model(model, epochs, batch_size, learning_rate):
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     # Define the metrics
-    train_loss = tf.keras.metrics.Mean()  
+    train_loss = tf.keras.metrics.Mean()
 
     # Create empty list for the metrics
     train_loss_results = []
@@ -103,4 +100,3 @@ def train_model(model, epochs, batch_size, learning_rate):
 if __name__ == "__main__":
     # Main function
     train_model(TrackNetModel, epochs=10, batch_size=3, learning_rate=0.001)
-
