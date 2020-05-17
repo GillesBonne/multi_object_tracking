@@ -92,7 +92,6 @@ with h5py.File(filename_export_images, 'w') as hf_images:
 
             df_frame_labels = df_labels[df_labels['frame'] == frame_num]
 
-            object_index = 0
             for index, row in df_frame_labels.iterrows():
                 # Initialize object specific label data structure.
                 object_labels_data = {}
@@ -109,10 +108,8 @@ with h5py.File(filename_export_images, 'w') as hf_images:
                 object_labels_data['bottom'] = round(row['bottom'])
 
                 # Save labels for the current object.
-                object_name = 'obj'+str(object_index)
+                object_name = 'obj'+str(int(row['track_id']))
                 frame_labels_data[object_name] = object_labels_data
-
-                object_index += 1
 
             # Save labels for the current frame.
             frame_name = 'frame'+str(frame_num)
