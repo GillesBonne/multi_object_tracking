@@ -1,9 +1,10 @@
 """Evaluation functions for the multi object tracker."""
 
-from __future__ import absolute_import, division, print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import numpy as np
-
 import motmetrics as mm
 
 
@@ -17,7 +18,6 @@ class MOTMetric():
 
   GitHub website: https://github.com/cheind/py-motmetrics
   """
-
     def __init__(self, auto_id=False):
         """ Create an accumulator that will be updated during each frame."""
         self.accumulator = mm.MOTAccumulator(auto_id=auto_id)
@@ -59,52 +59,18 @@ class MOTMetric():
     def get_MOTA(self):
         """Return the Multi Object Tracking Accuracy."""
         summary = self.metric_host.compute(self.accumulator,
-                                           metrics='mota',
-                                           return_dataframe=False)
+                            metrics='mota', return_dataframe=False)
         return summary['mota']
 
     def get_MOTP(self):
         """Return the Multi Object Tracking Precision."""
         summary = self.metric_host.compute(self.accumulator,
-                                           metrics='motp',
-                                           return_dataframe=False)
+                            metrics='motp', return_dataframe=False)
         return summary['motp']
 
     def get_metric(self, metric_list):
         """Return the Multi Object Tracking metrics defined in 'metric_list'."""
         summary = self.metric_host.compute(self.accumulator,
-                                           metrics=metric_list,
-                                           return_dataframe=False)
+                            metrics=metric_list, return_dataframe=False)
         return summary
 
-
-mot_calculator = MOTMetric(auto_id=True)
-
-object_ids = [1, 2, 3]
-hypothesis_ids = [1, 2, 4]
-objects = np.array([
-    [10, 0, 16, 10],
-    [30, 12, 32, 15],
-    [0, 2, 43, 28]])
-hypotheses = np.array([
-    [10, 0, 16, 10],
-    [30, 12, 37, 17],
-    [32, 14, 33, 20]])
-
-mot_calculator.update(object_ids, hypothesis_ids, objects, hypotheses)
-
-object_ids = [1, 2, 3]
-hypothesis_ids = [1, 2, 3]
-objects = np.array([
-    [10, 0, 16, 10],
-    [30, 12, 32, 15],
-    [0, 2, 43, 28]])
-hypotheses = np.array([
-    [10, 0, 16, 10],
-    [30, 12, 37, 17],
-    [32, 14, 33, 20]])
-
-mot_calculator.update(object_ids, hypothesis_ids, objects, hypotheses)
-
-print(mot_calculator.get_MOTP())
-print(mot_calculator.get_MOTA())

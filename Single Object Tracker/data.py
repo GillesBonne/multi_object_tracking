@@ -1,10 +1,16 @@
-import pickle
+"""Data handling functions for the video sequences."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+import pickle
 import numpy as np
 
 
 def get_combinations(labels_file):
-
+    """Get the combinations for anchor, positive and negative sample."""
+    
     # Import Python pickle file.
     with open(labels_file, 'rb') as file:
         labels_dict = pickle.load(file)

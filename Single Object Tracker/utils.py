@@ -1,16 +1,35 @@
 """Utilary functions for the single object tracker."""
 
-from __future__ import absolute_import, division, print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
+import cv2
 import numpy as np
-from PIL import Image
+
+from collections import OrderedDict
 
 
-def rescale_bb(bounding_box, size):
-    """Rescale boudning box to fixed size."""
-    img = Image.fromarray(bouding_box)
-    new_img = img.resize(size) if isinstance(size, tuple) else img.resize((size, size))
-    return np.array(new_img)
+def slice_image(im, dict_obj):
+    """Slice the bounding box out of the image and return."""
+    left = dict_obj['left']
+    top = dict_obj['top']
+    right = dict_obj['right']
+    bottom = dict_obj['bottom']
+
+    im = im[top:bottom, left:right, :]
+    return im
+
+
+def resize_bb(bounding_box, image_size):
+    """Resize bounding box to fixed size."""
+    img = np.asarray(bounding_box)
+    if isinstance(image_size, tuple):
+        img = cv2.resize(img, dsize=image_size)
+    else:
+        img = cv2.resize(img, dsize=(image_size, image_size))
+    
+    return np.array(img, dtype=np.uint8)
 
 
 def calc_distance(vector1, vector2):
@@ -22,19 +41,19 @@ def re_identification(embeds_dict, new_embeds, max_dist=1):
     """Link the current embeddings to the embedding of the previous frame.
 
   Args:
-    embeds_dict: Embeddings of all known bouding boxes as key and there 
-      identification as value. For inital frame, the 'embeds_dict' is empty.
+    embeds_dict: Dict with the ids as keys and the embeddings as values.
+      For the initial frame, the 'embeds_dict' object is an empty dict. 
     new_embeds: New embeddings that have to be linked and assigned with id.
     max_dist: Maximum distance between embeddings before they are not linked. 
+
+    NOTE: This function runs but does not have good performance!
   """
-    # Put the embedding in list two preserve there order
-    embeds = list(embeds_dict.keys())
+    # Convert dict to ordered dict to preserve the order
+    embeds_dict = OrderedDict(embeds_dict)
+    embeds = embeds_dict.values()
 
     # Calculate the distance between every combination
     dist_matrix = np.empty([len(new_embeds), len(embeds)])
-
-    print(len(embeds))  # REMOVE
-    
     for i, new_embed in enumerate(new_embeds):
         for j, embed in enumerate(embeds):
             # Put penalties for the distance calculation here
@@ -42,65 +61,28 @@ def re_identification(embeds_dict, new_embeds, max_dist=1):
             dist_matrix[i,j] = dist
 
     # Link every new embedding to embedding with the shortest distance
-    new_embeds_dict = {}
+    ids_list = []
     for i, row in enumerate(dist_matrix):
-        shortest_dist = np.min(row)
 
-        print(shortest_dist)  # REMOVE
+        if row.size == 0:
+            # No embedding in 'embeds_dict' to compare with
+            new_id = max(embeds_dict.keys())+1 if embeds_dict else 0
+            embeds_dict[new_id] = new_embeds[i]
+            ids_list.append(new_id)
+            continue
 
-        if shortest_dist > max_dist:
+        if np.min(row) > max_dist or row.size == 0:
             # Distance too large, assign new id
-            new_id = max(embeds_dict.values())+1
-            new_embeds_dict[new_embeds[i]] = new_id
-            embeds_dict[new_embeds[i]] = new_id
+            new_id = max(embeds_dict.keys())+1 if embeds_dict else 0
+            embeds_dict[new_id] = new_embeds[i]
+            ids_list.append(new_id)
             continue
 
         # Find the best embedding and the identification
-        embed_ = embeds[np.where(row==shortest_dist)]
-        id_ = embeds_dict[embed_match]
-        new_embeds_dict[new_embeds[i]] = id_
+        idx_shortest_dist = np.argmin(row)
+        id_ = list(embeds_dict.keys())[idx_shortest_dist]
+        ids_list.append(id_)
 
-    return embeds_dict, new_embeds_dict
-
-
-embed1 = np.random.rand(1,128).tolist()
-embed2 = np.random.rand(1,128).tolist()
-embed3 = np.random.rand(1,128).tolist()
-embed4 = np.random.rand(1,128).tolist()
-embed5 = np.random.rand(1,128).tolist()
-
-embeds_dict = {embed1:1, embed2:2, embed3:3, embed1:4}
-new_embeds = [embed3, embed4, embed5]
-
-embeds_dict, new_embeds_dict = re_identification(embeds_dict, new_embeds, max_dist=1)
-
-print(embeds_dict)
-print(new_embeds_dict)
+    return embeds_dict, ids_list
 
 
-
-    # Make embeddings for every bouding box in the initial frame and assign id
-
-    # Make embedding for every bounding box in the next frame
-
-    # Link the bounding boxes by using the distance between embeddings
-    # and assign the corresponding id
-
-    # If distance is too large, give new id and add to list/dict
-
-
-
-
-
-
-    # # Calculate the distance between every combination
-    # dist_matrix = np.empty([len(prev_embeds), len(curr_embeds)])
-    
-    # for i, prev_embed in enumerate(prev_embeds):
-    #     for j, curr_embed in enumerate(curr_embeds):
-    #         # Put the linking algorithm here
-    #         dist = calc_distance(prev_embed, curr_embed)
-    #         dist_matrix[i,j] = dist
-
-    # # Determine the pairs with the shortest distance
-    # min_dist = np.min(a[np.nonzero(a)])
