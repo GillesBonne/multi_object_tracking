@@ -74,3 +74,35 @@ class MOTMetric():
             metrics=metric_list, return_dataframe=False)
         return summary
 
+
+mot_calculator = MOTMetric(auto_id=True)
+
+object_ids = [1, 2, 3]
+hypothesis_ids = [1, 2, 4]
+objects = np.array([
+    [10, 0, 16, 10],
+    [30, 12, 32, 15],
+    [0, 2, 43, 28]])
+hypotheses = np.array([
+    [10, 0, 16, 10],
+    [30, 12, 37, 17],
+    [32, 14, 33, 20]])
+
+mot_calculator.update(object_ids, hypothesis_ids, objects, hypotheses)
+
+object_ids = [1, 2, 3]
+hypothesis_ids = [1, 2, 3]
+objects = np.array([
+    [10, 0, 16, 10],
+    [30, 12, 32, 15],
+    [0, 2, 43, 28]])
+hypotheses = np.array([
+    [10, 0, 16, 10],
+    [30, 12, 37, 17],
+    [32, 14, 33, 20]])
+
+mot_calculator.update(object_ids, hypothesis_ids, objects, hypotheses)
+
+print(mot_calculator.get_MOTP())
+print(mot_calculator.get_MOTA())
+

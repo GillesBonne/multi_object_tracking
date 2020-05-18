@@ -36,6 +36,25 @@ def get_batch(video, obj, batch_size):
     return bounding_boxes, object_ids
 
 
+def run_validation(model):
+    """Run validation sequence on model.
+
+  Args:
+    model: Model to train.
+  """
+    # Load the validation sequence
+
+    # Create the initial embeddings
+
+    # Run the model on the next frame
+
+    # Link the embeddings to the embeddings of the previous frame
+
+    # Update the metric
+
+    # Return the MOT accuracy score
+
+
 def train_model(model, epochs, batch_size, learning_rate):
     """Create training loop for the object tracker model.
 
@@ -77,7 +96,7 @@ def train_model(model, epochs, batch_size, learning_rate):
                 train_loss.update_state(loss)
 
         # Run validation program on sequence and get score
-        MOTA_score = run_validation()  # TO DO: implement this function
+        MOTA_score = run_validation(model)  # TO DO: implement this function
 
         if epoch % 2 == 0:
             print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}".format(
