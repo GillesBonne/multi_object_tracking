@@ -6,6 +6,8 @@ from __future__ import print_function
 
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 from collections import OrderedDict
 
@@ -47,6 +49,7 @@ def re_identification(embeds_dict, new_embeds, max_dist=1):
     max_dist: Maximum distance between embeddings before they are not linked. 
 
     NOTE: This function runs but does not have good performance!
+    ERROR: Two embeddings can get the same identification!  
   """
     # Convert dict to ordered dict to preserve the order
     embeds_dict = OrderedDict(embeds_dict)
@@ -84,5 +87,42 @@ def re_identification(embeds_dict, new_embeds, max_dist=1):
         ids_list.append(id_)
 
     return embeds_dict, ids_list
+
+
+def show_frame_with_bb(frame, bboxes, ids, fps=30):
+    """Visualize the video frame with bounding boxes and ids.
+
+  Args:
+    frame: Current video frame. 
+    bboxes: Bounding box data for objects in the current frame.
+    ids: Identification number for the objects in the current frame.
+    fps: Frame per second, used to determine the pause in between frames. 
+  """
+    # Convert frame and create the figure
+    figure_size = 8
+    frame = np.asarray(frame, dtype=np.uint8)
+    fig, ax = plt.subplots(figsize=(figure_size, int(figure_size/2)))
+
+    # Remove the axis and add the image
+    ax.axis('off')
+    ax.imshow(frame)
+
+    # Add the bounding box and id to the frame
+    for i, bbox in enumerate(bboxes):
+        left, top, right, bottom = bbox[0], bbox[1], bbox[2], bbox[3]
+        bbox_ = patches.Rectangle((left, top), right-left, bottom-top, 
+            linewidth=2, 
+            edgecolor='m', 
+            facecolor='none')
+        ax.add_patch(bbox_)
+        ax.text(right, top, ids[i],
+            color='m', 
+            ha='left', 
+            va='bottom')
+
+    # Show the frame with the bounding boxes and ids
+    plt.show(block=False)
+    plt.pause(1/fps)
+    plt.close()
 
 

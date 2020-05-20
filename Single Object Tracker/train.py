@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from data import get_combinations
 from model import TrackNetModel
 from eval import MOTMetric
-from utils import resize_bb, slice_image, re_identification
+from utils import resize_bb, slice_image, re_identification, show_frame_with_bb
 
 
 def get_batch(image_file, label_file, combination, image_size=128):
@@ -70,7 +70,7 @@ def get_batch(image_file, label_file, combination, image_size=128):
     return image_array, label_array 
 
 
-def run_validation(model, image_file, label_file, image_size=128):
+def run_validation(model, image_file, label_file, image_size=128, visual=False):
     """Run validation sequence on model.
 
   Args:
@@ -78,6 +78,7 @@ def run_validation(model, image_file, label_file, image_size=128):
     image_file: Video sequence used for the validation.
     label_file: Corresponding label file. 
     image_size: Size of the bounding boxes after resize.
+    visual: Visualize the frame with bounding boxes and ids.
   """
     mot_validation = MOTMetric(auto_id=True)
 
@@ -124,6 +125,7 @@ def run_validation(model, image_file, label_file, image_size=128):
                 top = object_dict['top']
                 right = object_dict['right']
                 bottom = object_dict['bottom']
+
                 object_bbs = np.append(object_bbs, np.array([[left, top, right, bottom]]), axis=0)
 
             # Perform the re-identification
@@ -131,7 +133,11 @@ def run_validation(model, image_file, label_file, image_size=128):
 
             # Update the MOT metric
             hypothese_bbs = object_bbs.copy()  # NOTE: THIS IS TEMPORARY!
-            mot_validation.update(object_ids, hypothesis_ids, object_bbs, hypothese_bbs)
+            mot_validation.update(object_ids, hypothesis_ids, object_bbs.copy(), hypothese_bbs.copy())
+
+            if visual:
+                # Visualize the frame with bouding boxes and ids
+                show_frame_with_bb(frame, object_bbs.copy(), hypothesis_ids)
 
         # Return the MOT accuracy score
         return mot_validation.get_MOTA()
@@ -212,6 +218,8 @@ if __name__ == "__main__":
     # Settings for the train process
     epochs = 30
     learning_rate = 0.001
+
+    MOTA_score = run_validation(model, image_files[0], label_files[0], visual=True)
 
     # Train the model
     trained_model = train_model(model, image_files, label_files, epochs, learning_rate)
