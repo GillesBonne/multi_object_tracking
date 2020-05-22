@@ -34,15 +34,26 @@ def get_combinations(labels_file):
             if len(occurrences) < 2:
                 continue
 
-            # Choose random initial frame.
-            frame_anchor, frame_positive = np.random.choice(occurrences, size=2, replace=False)
+            for occurrence in occurrences:
+                # Get frames to be able to compare to.
+                frames_not_current = occurrences.copy()
+                frames_not_current.remove(occurrence)
+                for frame_not_current in frames_not_current:
 
-            # Random choice from random choice of object_ids not equal to object_id.
-            object_id_compare = np.random.choice(object_ids_not_current)
-            occurrences_compare = labels_dict[seq_key]['frames_per_id'][object_id_compare]
-            frame_negative = np.random.choice(occurrences_compare)
+                    frame_anchor = occurrence
+                    frame_positive = frame_not_current
 
-            combinations.append([seq_key, object_id, frame_anchor, frame_positive,
-                                 object_id_compare, frame_negative])
+                    # Random choice from random choice of object_ids not equal to object_id.
+                    object_id_compare = np.random.choice(object_ids_not_current)
+                    occurrences_compare = labels_dict[seq_key]['frames_per_id'][object_id_compare]
+                    frame_negative = np.random.choice(occurrences_compare)
+
+                    combinations.append([seq_key, object_id, frame_anchor, frame_positive,
+                                         object_id_compare, frame_negative])
 
     return combinations
+
+
+if __name__ == '__main__':
+    print('Number of combinations per epoch: {}.'.format(
+        len(get_combinations('../data/kitti_first_seq_labels.bin'))))
