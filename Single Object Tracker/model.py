@@ -1,6 +1,8 @@
 """Model for the single object tracker."""
 
-from __future__ import absolute_import, division, print_function
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import tensorflow as tf
 from tensorflow.keras import Model, layers
@@ -52,6 +54,9 @@ class TrackNet(Model):
             x, axis=1))  # L2 normalize embeddings
 
     def call(self, inputs):
+        if len(inputs.shape) == 3:
+            inputs = tf.expand_dims(inputs, 0)
+
         x = tf.cast(inputs, dtype=tf.float32)
         x = self.conv1(x)
         x = self.relu1(self.norm1(x))
