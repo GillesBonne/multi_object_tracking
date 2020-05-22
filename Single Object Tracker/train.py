@@ -28,17 +28,19 @@ def get_batch(image_file, label_file, combination, image_size=128):
   Returns:
     Both resized bounding box images and there corresponding ids.
   """
-    batch_size = 3  # Batch always contains triplets
+    # Batch always contains triplets.
+    batch_size = 3
+
     seq, pos_id, anc_frame, pos_frame, neg_id, neg_frame = combination
     image_array = np.empty([batch_size, image_size, image_size, 3], dtype=np.uint8)
 
-    # Get the frame data
+    # Get the frame data.
     with h5py.File(image_file, 'r') as data:
         im_anchor = data[seq][anc_frame].copy()
         im_positive = data[seq][pos_frame].copy()
         im_negative = data[seq][neg_frame].copy()
 
-    # Get the label information
+    # Get the label information.
     with open(label_file, 'rb') as file:
         labels_dict = pickle.load(file)
 
@@ -46,24 +48,17 @@ def get_batch(image_file, label_file, combination, image_size=128):
     dict_positive = labels_dict[seq]['frame'+str(pos_frame)]['obj'+str(pos_id)]
     dict_negative = labels_dict[seq]['frame'+str(neg_frame)]['obj'+str(neg_id)]
 
-    # Get the bounding box of every object
+    # Get the bounding box of every object.
     anchor_bb = slice_image(im=im_anchor, dict_obj=dict_anchor)
     positive_bb = slice_image(im=im_positive, dict_obj=dict_positive)
     negative_bb = slice_image(im=im_negative, dict_obj=dict_negative)
 
-    # Rescale the bouding boxes to fixed size
+    # Rescale the bouding boxes to fixed size.
     image_array[0, :, :, :] = resize_bb(anchor_bb, image_size)
     image_array[1, :, :, :] = resize_bb(positive_bb, image_size)
     image_array[2, :, :, :] = resize_bb(negative_bb, image_size)
 
     label_array = np.array([pos_id, pos_id, neg_id])
-
-    # # Check if the data is correct
-    # fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
-    # ax1.imshow(image_array[0,:,:,:])
-    # ax2.imshow(image_array[1,:,:,:])
-    # ax3.imshow(image_array[2,:,:,:])
-    # plt.show()
 
     return image_array, label_array
 
@@ -80,37 +75,37 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
   """
     mot_validation = MOTMetric(auto_id=True)
 
-    # Get the label file
+    # Get the label file.
     with open(label_file, 'rb') as file:
         label_dict = pickle.load(file)
 
-    # Open the validation sequence
+    # Open the validation sequence.
     with h5py.File(image_file, 'r') as sequence:
 
-        # Create the initial embeddings
+        # Create the initial embeddings.
         init_frame = sequence['seq0'][0].copy()
         init_labels = label_dict['seq0']['frame0']
 
         new_embeddings, embeds_dict = [], {}
         for object_dict in init_labels.values():
-            # Get the bounding box of every object
+            # Get the bounding box of every object.
             object_bb = slice_image(im=init_frame, dict_obj=object_dict)
             object_bb = resize_bb(object_bb, image_size)
             embedding = model(object_bb)
 
             new_embeddings.append(embedding)
 
-        # Perform the re-identification
+        # Perform the re-identification.
         embeds_dict, hypothesis_ids = re_identification(embeds_dict, new_embeddings, max_dist=1)
 
-        # Loop over every frame in the sequence (starting at second frame)
+        # Loop over every frame in the sequence (starting at second frame).
         for i, frame in enumerate(sequence['seq0'][1:]):
             curr_label = label_dict['seq0']['frame'+str(i+1)]
 
             new_embeddings, object_ids = [], []
             object_bbs = np.empty((0, 4), dtype=int)
             for object_dict in curr_label.values():
-                # Get the bounding box of every object
+                # Get the bounding box of every object.
                 object_bb = slice_image(im=frame, dict_obj=object_dict)
                 object_bb = resize_bb(object_bb, image_size)
                 embedding = model(object_bb)
@@ -118,7 +113,7 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
                 new_embeddings.append(embedding)
                 object_ids.append(object_dict['track_id'])
 
-                # Append the bounding box data
+                # Append the bounding box data.
                 left = object_dict['left']
                 top = object_dict['top']
                 right = object_dict['right']
@@ -126,19 +121,20 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
 
                 object_bbs = np.append(object_bbs, np.array([[left, top, right, bottom]]), axis=0)
 
-            # Perform the re-identification
+            # Perform the re-identification.
             embeds_dict, hypothesis_ids = re_identification(embeds_dict, new_embeddings, max_dist=1)
 
-            # Update the MOT metric
-            hypothese_bbs = object_bbs.copy()  # NOTE: THIS IS TEMPORARY!
+            # Update the MOT metric.
+            # NOTE: THIS IS TEMPORARY!
+            hypothese_bbs = object_bbs.copy()
             mot_validation.update(object_ids, hypothesis_ids,
                                   object_bbs.copy(), hypothese_bbs.copy())
 
             if visual:
-                # Visualize the frame with bouding boxes and ids
+                # Visualize the frame with bouding boxes and ids.
                 show_frame_with_bb(frame, object_bbs.copy(), hypothesis_ids)
 
-        # Return the MOT accuracy score
+        # Return the MOT accuracy score.
         return mot_validation.get_MOTA()
 
 
@@ -154,19 +150,19 @@ def train_model(model, image_files, label_files, epochs, learning_rate):
   """
     print('Training the model for {} epochs...'.format(epochs))
 
-    # Create empty list for the metrics
+    # Create empty list for the metrics.
     train_loss_results = []
     mot_metric_results = []
 
-    # Define the loss, optimizer and metric(s)
+    # Define the loss, optimizer and metric(s).
     loss_object = tfa.losses.TripletSemiHardLoss()
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
     train_loss = tf.keras.metrics.Mean()
 
-    # Training loop
+    # Training loop.
     for epoch in range(epochs):
         for image_file, label_file in zip(image_files, label_files):
-            # Get all bouding box combinations for this sequence
+            # Get all bouding box combinations for this sequence.
             combinations = get_combinations(label_file)
 
             for combination in combinations:
@@ -179,21 +175,21 @@ def train_model(model, image_files, label_files, epochs, learning_rate):
                 gradients = tape.gradient(loss, model.trainable_variables)
                 optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
-                # Track progress
+                # Track progress.
                 train_loss.update_state(loss)
 
-        # Run validation program on sequence and get score
+        # Run validation program on sequence and get score.
         MOTA_score = run_validation(model, image_files[0], label_files[0])
 
         if epoch % 2 == 0:
             print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}".format(
                 epoch, train_loss.result(), MOTA_score))
 
-        # Append the results
+        # Append the results.
         train_loss_results.append(train_loss.result())
         mot_metric_results.append(MOTA_score)
 
-    # Visualize the results of training
+    # Visualize the results of training.
     fig, axes = plt.subplots(2, sharex=True, figsize=(7, 5))
     fig.suptitle("Training Metrics", fontsize=14)
 
@@ -209,16 +205,16 @@ def train_model(model, image_files, label_files, epochs, learning_rate):
 
 
 if __name__ == "__main__":
-    # Select the model and data
+    # Select the model and data.
     model = TrackNetModel
     image_files = ['../data/kitti_first_seq_images.h5']
     label_files = ['../data/kitti_first_seq_labels.bin']
 
-    # Settings for the train process
+    # Settings for the train process.
     epochs = 30
     learning_rate = 0.001
 
     MOTA_score = run_validation(model, image_files[0], label_files[0], visual=True)
 
-    # Train the model
+    # Train the model.
     trained_model = train_model(model, image_files, label_files, epochs, learning_rate)

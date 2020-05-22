@@ -49,37 +49,37 @@ def re_identification(embeds_dict, new_embeds, max_dist=1):
     NOTE: This function runs but does not have good performance!
     ERROR: Two embeddings can get the same identification!
   """
-    # Convert dict to ordered dict to preserve the order
+    # Convert dict to ordered dict to preserve the order.
     embeds_dict = OrderedDict(embeds_dict)
     embeds = embeds_dict.values()
 
-    # Calculate the distance between every combination
+    # Calculate the distance between every combination.
     dist_matrix = np.empty([len(new_embeds), len(embeds)])
     for i, new_embed in enumerate(new_embeds):
         for j, embed in enumerate(embeds):
-            # Put penalties for the distance calculation here
+            # Put penalties for the distance calculation here.
             dist = calc_distance(new_embed, embed)
             dist_matrix[i, j] = dist
 
-    # Link every new embedding to embedding with the shortest distance
+    # Link every new embedding to embedding with the shortest distance.
     ids_list = []
     for i, row in enumerate(dist_matrix):
 
         if row.size == 0:
-            # No embedding in 'embeds_dict' to compare with
+            # No embedding in 'embeds_dict' to compare with.
             new_id = max(embeds_dict.keys())+1 if embeds_dict else 0
             embeds_dict[new_id] = new_embeds[i]
             ids_list.append(new_id)
             continue
 
         if np.min(row) > max_dist or row.size == 0:
-            # Distance too large, assign new id
+            # Distance too large, assign new id.
             new_id = max(embeds_dict.keys())+1 if embeds_dict else 0
             embeds_dict[new_id] = new_embeds[i]
             ids_list.append(new_id)
             continue
 
-        # Find the best embedding and the identification
+        # Find the best embedding and the identification.
         idx_shortest_dist = np.argmin(row)
         id_ = list(embeds_dict.keys())[idx_shortest_dist]
         ids_list.append(id_)
@@ -96,16 +96,16 @@ def show_frame_with_bb(frame, bboxes, ids, fps=30):
     ids: Identification number for the objects in the current frame.
     fps: Frame per second, used to determine the pause in between frames.
   """
-    # Convert frame and create the figure
+    # Convert frame and create the figure.
     figure_size = 8
     frame = np.asarray(frame, dtype=np.uint8)
     fig, ax = plt.subplots(figsize=(figure_size, int(figure_size/2)))
 
-    # Remove the axis and add the image
+    # Remove the axis and add the image.
     ax.axis('off')
     ax.imshow(frame)
 
-    # Add the bounding box and id to the frame
+    # Add the bounding box and id to the frame.
     for i, bbox in enumerate(bboxes):
         left, top, right, bottom = bbox[0], bbox[1], bbox[2], bbox[3]
         bbox_ = patches.Rectangle((left, top), right-left, bottom-top,
@@ -118,7 +118,7 @@ def show_frame_with_bb(frame, bboxes, ids, fps=30):
                 ha='left',
                 va='bottom')
 
-    # Show the frame with the bounding boxes and ids
+    # Show the frame with the bounding boxes and ids.
     plt.show(block=False)
     plt.pause(1/fps)
     plt.close()

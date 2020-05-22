@@ -48,8 +48,10 @@ class TrackNet(Model):
         self.relu6 = layers.Activation('relu')
         self.flat6 = layers.Flatten()
         self.dens6 = layers.Dense(128, activation=None)
+
+        # L2 normalize embeddings.
         self.l2norm = layers.Lambda(lambda x: tf.math.l2_normalize(
-            x, axis=1))  # L2 normalize embeddings
+            x, axis=1))
 
     def call(self, inputs):
         if len(inputs.shape) == 3:
@@ -84,5 +86,5 @@ class TrackNet(Model):
         return self.l2norm(x)
 
 
-# Create an instance of the model
+# Create an instance of the model.
 TrackNetModel = TrackNet(padding='valid', use_bias=False, data_format='channel_last')
