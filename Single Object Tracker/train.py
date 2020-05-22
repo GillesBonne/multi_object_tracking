@@ -1,21 +1,19 @@
 """Train loop for the single object tracker."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
-import h5py
 import pickle
 
+import h5py
+import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 import tensorflow_addons as tfa
-import matplotlib.pyplot as plt
 
 from data import get_combinations
-from model import TrackNetModel
 from eval import MOTMetric
-from utils import resize_bb, slice_image, re_identification, show_frame_with_bb
+from model import TrackNetModel
+from utils import re_identification, resize_bb, show_frame_with_bb, slice_image
 
 
 def get_batch(image_file, label_file, combination, image_size=128):
@@ -43,7 +41,7 @@ def get_batch(image_file, label_file, combination, image_size=128):
     # Get the label information
     with open(label_file, 'rb') as file:
         labels_dict = pickle.load(file)
-        
+
     dict_anchor = labels_dict[seq]['frame'+str(anc_frame)]['obj'+str(pos_id)]
     dict_positive = labels_dict[seq]['frame'+str(pos_frame)]['obj'+str(pos_id)]
     dict_negative = labels_dict[seq]['frame'+str(neg_frame)]['obj'+str(neg_id)]
@@ -54,9 +52,9 @@ def get_batch(image_file, label_file, combination, image_size=128):
     negative_bb = slice_image(im=im_negative, dict_obj=dict_negative)
 
     # Rescale the bouding boxes to fixed size
-    image_array[0,:,:,:] = resize_bb(anchor_bb, image_size)
-    image_array[1,:,:,:] = resize_bb(positive_bb, image_size)
-    image_array[2,:,:,:] = resize_bb(negative_bb, image_size)
+    image_array[0, :, :, :] = resize_bb(anchor_bb, image_size)
+    image_array[1, :, :, :] = resize_bb(positive_bb, image_size)
+    image_array[2, :, :, :] = resize_bb(negative_bb, image_size)
 
     label_array = np.array([pos_id, pos_id, neg_id])
 
@@ -67,7 +65,7 @@ def get_batch(image_file, label_file, combination, image_size=128):
     # ax3.imshow(image_array[2,:,:,:])
     # plt.show()
 
-    return image_array, label_array 
+    return image_array, label_array
 
 
 def run_validation(model, image_file, label_file, image_size=128, visual=False):
@@ -76,7 +74,7 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
   Args:
     model: Model on which to perform the validation.
     image_file: Video sequence used for the validation.
-    label_file: Corresponding label file. 
+    label_file: Corresponding label file.
     image_size: Size of the bounding boxes after resize.
     visual: Visualize the frame with bounding boxes and ids.
   """
@@ -88,11 +86,11 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
 
     # Open the validation sequence
     with h5py.File(image_file, 'r') as sequence:
-        
+
         # Create the initial embeddings
         init_frame = sequence['seq0'][0].copy()
         init_labels = label_dict['seq0']['frame0']
-        
+
         new_embeddings, embeds_dict = [], {}
         for object_dict in init_labels.values():
             # Get the bounding box of every object
@@ -108,9 +106,9 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
         # Loop over every frame in the sequence (starting at second frame)
         for i, frame in enumerate(sequence['seq0'][1:]):
             curr_label = label_dict['seq0']['frame'+str(i+1)]
-            
+
             new_embeddings, object_ids = [], []
-            object_bbs = np.empty((0,4), dtype=int)
+            object_bbs = np.empty((0, 4), dtype=int)
             for object_dict in curr_label.values():
                 # Get the bounding box of every object
                 object_bb = slice_image(im=frame, dict_obj=object_dict)
@@ -133,7 +131,8 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
 
             # Update the MOT metric
             hypothese_bbs = object_bbs.copy()  # NOTE: THIS IS TEMPORARY!
-            mot_validation.update(object_ids, hypothesis_ids, object_bbs.copy(), hypothese_bbs.copy())
+            mot_validation.update(object_ids, hypothesis_ids,
+                                  object_bbs.copy(), hypothese_bbs.copy())
 
             if visual:
                 # Visualize the frame with bouding boxes and ids
@@ -169,12 +168,12 @@ def train_model(model, image_files, label_files, epochs, learning_rate):
         for image_file, label_file in zip(image_files, label_files):
             # Get all bouding box combinations for this sequence
             combinations = get_combinations(label_file)
-            
+
             for combination in combinations:
                 images, labels = get_batch(image_file, label_file, combination)
 
                 with tf.GradientTape() as tape:
-                    embeddings = model(images, training=True)             
+                    embeddings = model(images, training=True)
                     loss = loss_object(labels, embeddings)
 
                 gradients = tape.gradient(loss, model.trainable_variables)
@@ -214,7 +213,7 @@ if __name__ == "__main__":
     model = TrackNetModel
     image_files = ['../data/kitti_first_seq_images.h5']
     label_files = ['../data/kitti_first_seq_labels.bin']
-    
+
     # Settings for the train process
     epochs = 30
     learning_rate = 0.001
@@ -223,8 +222,3 @@ if __name__ == "__main__":
 
     # Train the model
     trained_model = train_model(model, image_files, label_files, epochs, learning_rate)
-
-
-
-
-
