@@ -34,57 +34,72 @@ def resize_bb(bounding_box, image_size):
     return np.array(img, dtype=np.uint8)
 
 
-def calc_distance(vector1, vector2):
-    """Calculate the distance between two feature vectors."""
-    return np.linalg.norm(vector1 - vector2)
+def calc_distance(v1, v2):
+    """Calculate the Euclidean distance between two feature vectors."""
+    return np.linalg.norm(v1 - v2)
 
 
-def re_identification(embeds_dict, new_embeds, max_dist=1):
+def calc_cosine_sim(v1, v2):
+    """Calculate the cosine similarity between two vectors."""
+    v1_T = np.transpose(v1)
+    v2_T = np.transpose(v2)
+    return abs(np.dot(v1, v2_T) / (np.sqrt(np.dot(v1, v1_T)) * np.sqrt(np.dot(v2, v2_T))))
+
+
+def re_identification(embeds_dict, new_embeds, method='Euclidean', max_dist=0.2, update=False):
     """Link the current embeddings to the embedding of the previous frame.
 
   Args:
     embeds_dict: Dict with the ids as keys and the embeddings as values.
       For the initial frame, the 'embeds_dict' object is an empty dict. 
     new_embeds: New embeddings that have to be linked and assigned with id.
-    max_dist: Maximum distance between embeddings before they are not linked. 
+    method: Method to use for comparison: 'Euclidean' or 'cosine'.
+    max_dist: Maximum distance between embeddings before they are not linked.
+    update: When set to True, the 'embeds_dict' is updated with the new embeddings.
 
-    NOTE: This function runs but does not have good performance!
-    ERROR: Two embeddings can get the same identification!  
+    NOTE: Two embeddings can get the same identification!  
   """
     # Convert dict to ordered dict to preserve the order
     embeds_dict = OrderedDict(embeds_dict)
-    embeds = embeds_dict.values()
+    embeds_list = embeds_dict.values()
 
-    # Calculate the distance between every combination
-    dist_matrix = np.empty([len(new_embeds), len(embeds)])
-    for i, new_embed in enumerate(new_embeds):
-        for j, embed in enumerate(embeds):
-            # Put penalties for the distance calculation here
-            dist = calc_distance(new_embed, embed)
-            dist_matrix[i,j] = dist
+    # Select the similarity function
+    if method == 'Euclidean':
+        function = calc_distance
+    elif method == 'cosine':
+        function = calc_cosine_sim
 
-    # Link every new embedding to embedding with the shortest distance
+    # Find the best matching embedding
     ids_list = []
-    for i, row in enumerate(dist_matrix):
-
-        if row.size == 0:
+    for new_embed in new_embeds:
+        if not embeds_list:
             # No embedding in 'embeds_dict' to compare with
             new_id = max(embeds_dict.keys())+1 if embeds_dict else 0
-            embeds_dict[new_id] = new_embeds[i]
+            embeds_dict[new_id] = new_embed
             ids_list.append(new_id)
             continue
 
-        if np.min(row) > max_dist or row.size == 0:
+        # Calculate the similarity between embeddings
+        similarity = []
+        for embed in embeds_list:
+            similarity.append(function(new_embed, embed))
+
+        min_value = min(similarity)
+        index = similarity.index(min_value)
+
+        if min_value > max_dist:
             # Distance too large, assign new id
-            new_id = max(embeds_dict.keys())+1 if embeds_dict else 0
-            embeds_dict[new_id] = new_embeds[i]
+            new_id = max(embeds_dict.keys())+1
+            embeds_dict[new_id] = new_embed
             ids_list.append(new_id)
             continue
 
-        # Find the best embedding and the identification
-        idx_shortest_dist = np.argmin(row)
-        id_ = list(embeds_dict.keys())[idx_shortest_dist]
-        ids_list.append(id_)
+        id_match = list(embeds_dict.keys())[index]
+        ids_list.append(id_match)
+
+        if update:
+            # Update the dict with the new embedding
+            embeds_dict[id_match] = new_embed
 
     return embeds_dict, ids_list
 
@@ -115,9 +130,9 @@ def show_frame_with_bb(frame, bboxes, ids, fps=30):
             edgecolor='m', 
             facecolor='none')
         ax.add_patch(bbox_)
-        ax.text(right, top, ids[i],
+        ax.text(left, top, ids[i],
             color='m', 
-            ha='left', 
+            ha='right', 
             va='bottom')
 
     # Show the frame with the bounding boxes and ids

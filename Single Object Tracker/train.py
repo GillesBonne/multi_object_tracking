@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
 import h5py
 import pickle
 
@@ -13,7 +14,7 @@ import tensorflow_addons as tfa
 import matplotlib.pyplot as plt
 
 from data import get_combinations
-from model import TrackNetModel
+from model import TrackNetModel, TrackNet
 from eval import MOTMetric
 from utils import resize_bb, slice_image, re_identification, show_frame_with_bb
 
@@ -103,7 +104,8 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
             new_embeddings.append(embedding)
 
         # Perform the re-identification
-        embeds_dict, hypothesis_ids = re_identification(embeds_dict, new_embeddings, max_dist=1)
+        embeds_dict, hypothesis_ids = re_identification(embeds_dict, new_embeddings, 
+            method='Euclidean', max_dist=1.0, update=True)
 
         # Loop over every frame in the sequence (starting at second frame)
         for i, frame in enumerate(sequence['seq0'][1:]):
@@ -129,7 +131,8 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
                 object_bbs = np.append(object_bbs, np.array([[left, top, right, bottom]]), axis=0)
 
             # Perform the re-identification
-            embeds_dict, hypothesis_ids = re_identification(embeds_dict, new_embeddings, max_dist=1)
+            embeds_dict, hypothesis_ids = re_identification(embeds_dict, new_embeddings, 
+                method='Euclidean', max_dist=1.0, update=True)
 
             # Update the MOT metric
             hypothese_bbs = object_bbs.copy()  # NOTE: THIS IS TEMPORARY!
@@ -186,8 +189,8 @@ def train_model(model, image_files, label_files, epochs, learning_rate):
         # Run validation program on sequence and get score
         MOTA_score = run_validation(model, image_files[0], label_files[0])
 
-        if epoch % 2 == 0:
-            print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}".format(
+        if epoch % 5 == 0:
+            print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.1%}".format(
                 epoch, train_loss.result(), MOTA_score))
 
         # Append the results
@@ -216,13 +219,22 @@ if __name__ == "__main__":
     label_files = ['../data/kitti_first_seq_labels.bin']
     
     # Settings for the train process
-    epochs = 30
+    epochs = 100
     learning_rate = 0.001
 
-    MOTA_score = run_validation(model, image_files[0], label_files[0], visual=True)
-
     # Train the model
-    trained_model = train_model(model, image_files, label_files, epochs, learning_rate)
+    model = train_model(model, image_files, label_files, epochs, learning_rate)
+
+    # Save the weights of the model
+    model_path = "model/model.ckpt"
+    model.save_weights(model_path)
+
+    # Load the previously saved weights
+    new_model = TrackNet(padding='valid', use_bias=False, data_format='channel_last')
+    new_model.load_weights(model_path)
+
+    # Run the validation with visualization
+    run_validation(new_model, image_files[0], label_files[0], visual=True)
 
 
 
