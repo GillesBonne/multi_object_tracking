@@ -86,8 +86,8 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
     with h5py.File(image_file, 'r') as sequence:
 
         # Create the initial embeddings.
-        init_frame = sequence['seq0'][0].copy()
-        init_labels = label_dict['seq0']['frame0']
+        init_frame = sequence['MVI_39511'][0].copy()
+        init_labels = label_dict['MVI_39511']['frame0']
 
         new_embeddings, embeds_dict = [], {}
         for object_dict in init_labels.values():
@@ -100,11 +100,11 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
 
         # Perform the re-identification
         embeds_dict, hypothesis_ids = re_identification(embeds_dict, new_embeddings, 
-            method='Euclidean', max_dist=1.0, update=True)
+            method='Euclidean', max_dist=0.1, update=False)
 
         # Loop over every frame in the sequence (starting at second frame).
-        for i, frame in enumerate(sequence['seq0'][1:]):
-            curr_label = label_dict['seq0']['frame'+str(i+1)]
+        for i, frame in enumerate(sequence['MVI_39511'][1:]):
+            curr_label = label_dict['MVI_39511']['frame'+str(i+1)]
 
             new_embeddings, object_ids = [], []
             object_bbs = np.empty((0, 4), dtype=int)
@@ -127,11 +127,10 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
 
             # Perform the re-identification
             embeds_dict, hypothesis_ids = re_identification(embeds_dict, new_embeddings, 
-                method='Euclidean', max_dist=1.0, update=True)
+                method='Euclidean', max_dist=0.1, update=False)
 
             # Update the MOT metric.
-            # NOTE: THIS IS TEMPORARY!
-            hypothese_bbs = object_bbs.copy()
+            hypothese_bbs = object_bbs.copy()  # NOTE: THIS IS TEMPORARY!
             mot_validation.update(object_ids, hypothesis_ids,
                                   object_bbs.copy(), hypothese_bbs.copy())
 
@@ -170,6 +169,8 @@ def train_model(model, image_files, label_files, epochs, learning_rate):
             # Get all bouding box combinations for this sequence.
             combinations = get_combinations(label_file)
 
+            print(len(combinations))
+
             for combination in combinations:
                 images, labels = get_batch(image_file, label_file, combination)
 
@@ -186,7 +187,7 @@ def train_model(model, image_files, label_files, epochs, learning_rate):
         # Run validation program on sequence and get score.
         MOTA_score = run_validation(model, image_files[0], label_files[0])
 
-        if epoch % 5 == 0:
+        if epoch % 1 == 0:
             print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.1%}".format(
                 epoch, train_loss.result(), MOTA_score))
 
@@ -212,11 +213,11 @@ def train_model(model, image_files, label_files, epochs, learning_rate):
 if __name__ == "__main__":
     # Select the model and data.
     model = TrackNetModel
-    image_files = ['../data/kitti_first_seq_images.h5']
-    label_files = ['../data/kitti_first_seq_labels.bin']
+    image_files = ['../data/detrac_first_seq_images.h5']
+    label_files = ['../data/detrac_first_seq_labels.bin']
     
     # Settings for the train process
-    epochs = 100
+    epochs = 10
     learning_rate = 0.001
 
     # Train the model
@@ -227,9 +228,11 @@ if __name__ == "__main__":
     model.save_weights(model_path)
 
     # Load the previously saved weights
-    new_model = TrackNet(padding='valid', use_bias=False, data_format='channel_last')
+    new_model = TrackNet(padding='valid', use_bias=False, 
+                                data_format='channel_last', use_batchnorm=False)
     new_model.load_weights(model_path)
 
     # Run the validation with visualization
     MOTA_score = run_validation(new_model, image_files[0], label_files[0], visual=True)
+
 
