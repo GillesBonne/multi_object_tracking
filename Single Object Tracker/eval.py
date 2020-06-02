@@ -2,9 +2,8 @@
 
 from __future__ import absolute_import, division, print_function
 
-import numpy as np
-
 import motmetrics as mm
+import numpy as np
 
 
 class MOTMetric():
