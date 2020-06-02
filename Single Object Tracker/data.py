@@ -56,4 +56,4 @@ def get_combinations(labels_file):
 
 if __name__ == '__main__':
     print('Number of combinations per epoch: {}.'.format(
-        len(get_combinations('../data/kitti_first_seq_labels.bin'))))
+        len(get_combinations('../data/detrac_first_seq_labels.bin'))))
