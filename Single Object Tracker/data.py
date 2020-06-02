@@ -2,6 +2,7 @@
 
 from __future__ import absolute_import, division, print_function
 
+import itertools
 import pickle
 
 import numpy as np
@@ -34,22 +35,42 @@ def get_combinations(labels_file):
             if len(occurrences) < 2:
                 continue
 
-            for occurrence in occurrences:
-                # Get frames to be able to compare to.
-                frames_not_current = occurrences.copy()
-                frames_not_current.remove(occurrence)
-                for frame_not_current in frames_not_current:
+            # Check if object is not seen in all sequential frames.
+            for i, occurrence in enumerate(occurrences):
+                if i == 0:
+                    continue
+                else:
+                    if occurrences[i] != occurrences[i-1] + 1:
+                        print('There is a case for which an object is not seen in all sequential frames.')
+                        print('The object occurs in the following frames:')
+                        print(occurrences)
 
-                    frame_anchor = occurrence
-                    frame_positive = frame_not_current
+            # Specify the window size of the object scan across the video.
+            window_size = 2
+            if window_size < 2:
+                raise ValueError('Window size should be larger than 2.')
 
-                    # Random choice from random choice of object_ids not equal to object_id.
-                    object_id_compare = np.random.choice(object_ids_not_current)
-                    occurrences_compare = labels_dict[seq_key]['frames_per_id'][object_id_compare]
-                    frame_negative = np.random.choice(occurrences_compare)
+            # Get all window options with the specified window size.
+            frame_combinations = set()
+            for i in range(len(occurrences)):
+                frame_window = occurrences[i:i+window_size]
+                if len(frame_window) < window_size:
+                    continue
+                else:
+                    combs = set(list(itertools.combinations(frame_window, 2)))
+                    frame_combinations.update(combs)
 
-                    combinations.append([seq_key, object_id, frame_anchor, frame_positive,
-                                         object_id_compare, frame_negative])
+            # Get all the combination from the window options.
+            for frame_first, frame_second in frame_combinations:
+                frame_anchor, frame_positive = np.random.choice(
+                    [frame_first, frame_second], 2, replace=False)
+
+                object_id_compare = np.random.choice(object_ids_not_current)
+                occurrences_compare = labels_dict[seq_key]['frames_per_id'][object_id_compare]
+                frame_negative = np.random.choice(occurrences_compare)
+
+                combinations.append([seq_key, object_id, frame_anchor, frame_positive,
+                                     object_id_compare, frame_negative])
 
     return combinations
 
