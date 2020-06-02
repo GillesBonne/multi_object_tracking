@@ -215,7 +215,7 @@ if __name__ == "__main__":
     label_files = ['../data/detrac_first_seq_labels.bin']
 
     # Settings for the train process
-    epochs = 10
+    epochs = 3
     learning_rate = 0.001
 
     # Train the model
