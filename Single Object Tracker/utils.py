@@ -44,7 +44,7 @@ def calc_cosine_sim(v1, v2):
     return abs(np.dot(v1, v2_T) / (np.sqrt(np.dot(v1, v1_T)) * np.sqrt(np.dot(v2, v2_T))))
 
 
-def re_identification(embeds_dict, new_embeds, method='Euclidean', max_dist=0.2, update=False):
+def re_identification(embeds_dict, new_embeds, method='Euclidean', max_dist=0.1, update=False):
     """Link the current embeddings to the embedding of the previous frame.
 
   Args:
