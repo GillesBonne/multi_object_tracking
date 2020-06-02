@@ -59,7 +59,7 @@ def get_object_info(object, frame_labels_data, frames_per_id_dict, visualize):
     return frame_labels_data, frames_per_id_dict
 
 
-visualize = True
+visualize = False
 
 path_to_annotations = 'data_detrac/annotations'
 path_to_sequences = 'data_detrac/sequences'
