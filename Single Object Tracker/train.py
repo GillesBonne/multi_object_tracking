@@ -226,8 +226,7 @@ if __name__ == "__main__":
     model.save_weights(model_path)
 
     # Load the previously saved weights
-    new_model = TrackNet(padding='valid', use_bias=False,
-                         data_format='channel_last', use_batchnorm=False)
+    new_model = TrackNet(padding='valid', use_bias=False)
     new_model.load_weights(model_path)
 
     # Run the validation with visualization
