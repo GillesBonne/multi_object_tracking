@@ -55,7 +55,7 @@ def re_identification(embeds_dict, new_embeds, method='Euclidean', max_dist=0.1,
     max_dist: Maximum distance between embeddings before they are not linked.
     update: When set to True, the 'embeds_dict' is updated with the new embeddings.
 
-    NOTE: Two embeddings can get the same identification!  
+    NOTE: Two embeddings can get the same identification!
   """
     # Convert dict to ordered dict to preserve the order.
     embeds_dict = OrderedDict(embeds_dict)
@@ -129,9 +129,9 @@ def show_frame_with_bb(frame, bboxes, ids, fps=30):
                                   facecolor='none')
         ax.add_patch(bbox_)
         ax.text(left, top, ids[i],
-            color='m', 
-            ha='right', 
-            va='bottom')
+                color='m',
+                ha='right',
+                va='bottom')
 
     # Show the frame with the bounding boxes and ids.
     plt.show(block=False)

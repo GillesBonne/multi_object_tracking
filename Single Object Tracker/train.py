@@ -3,7 +3,6 @@
 from __future__ import absolute_import, division, print_function
 
 import os
-import h5py
 import pickle
 
 import h5py
@@ -13,9 +12,8 @@ import tensorflow as tf
 import tensorflow_addons as tfa
 
 from data import get_combinations
-from model import TrackNetModel, TrackNet
 from eval import MOTMetric
-from model import TrackNetModel
+from model import TrackNet, TrackNetModel
 from utils import re_identification, resize_bb, show_frame_with_bb, slice_image
 
 
@@ -99,8 +97,8 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
             new_embeddings.append(embedding)
 
         # Perform the re-identification
-        embeds_dict, hypothesis_ids = re_identification(embeds_dict, new_embeddings, 
-            method='Euclidean', max_dist=0.1, update=False)
+        embeds_dict, hypothesis_ids = re_identification(embeds_dict, new_embeddings,
+                                                        method='Euclidean', max_dist=0.1, update=False)
 
         # Loop over every frame in the sequence (starting at second frame).
         for i, frame in enumerate(sequence['MVI_39511'][1:]):
@@ -126,8 +124,8 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
                 object_bbs = np.append(object_bbs, np.array([[left, top, right, bottom]]), axis=0)
 
             # Perform the re-identification
-            embeds_dict, hypothesis_ids = re_identification(embeds_dict, new_embeddings, 
-                method='Euclidean', max_dist=0.1, update=False)
+            embeds_dict, hypothesis_ids = re_identification(embeds_dict, new_embeddings,
+                                                            method='Euclidean', max_dist=0.1, update=False)
 
             # Update the MOT metric.
             hypothese_bbs = object_bbs.copy()  # NOTE: THIS IS TEMPORARY!
@@ -215,9 +213,9 @@ if __name__ == "__main__":
     model = TrackNetModel
     image_files = ['../data/detrac_first_seq_images.h5']
     label_files = ['../data/detrac_first_seq_labels.bin']
-    
+
     # Settings for the train process
-    epochs = 10
+    epochs = 3
     learning_rate = 0.001
 
     # Train the model
@@ -228,11 +226,9 @@ if __name__ == "__main__":
     model.save_weights(model_path)
 
     # Load the previously saved weights
-    new_model = TrackNet(padding='valid', use_bias=False, 
-                                data_format='channel_last', use_batchnorm=False)
+    new_model = TrackNet(padding='valid', use_bias=False,
+                         data_format='channel_last', use_batchnorm=False)
     new_model.load_weights(model_path)
 
     # Run the validation with visualization
     MOTA_score = run_validation(new_model, image_files[0], label_files[0], visual=True)
-
-

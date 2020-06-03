@@ -80,5 +80,3 @@ class TrackNet(Model):
 
 # Create an instance of the model.
 TrackNetModel = TrackNet(padding='valid', use_bias=False)
-
-
