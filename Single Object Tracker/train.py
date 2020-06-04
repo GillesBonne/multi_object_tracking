@@ -3,7 +3,6 @@
 from __future__ import absolute_import, division, print_function
 
 import os
-import h5py
 import pickle
 
 import h5py
@@ -214,9 +213,9 @@ if __name__ == "__main__":
     model = TrackNet(padding='valid', use_bias=False)
     image_files = ['../data/detrac_first_seq_images.h5']
     label_files = ['../data/detrac_first_seq_labels.bin']
-    
+
     # Settings for the train process
-    epochs = 10
+    epochs = 3
     learning_rate = 0.001
 
     # Train the model
@@ -233,4 +232,5 @@ if __name__ == "__main__":
     # Run the validation with visualization
     MOT_object = run_validation(new_model, image_files[0], label_files[0], visual=True)
     print(MOT_object.get_MOTA())
+
 
