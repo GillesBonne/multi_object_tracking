@@ -12,9 +12,10 @@ import tensorflow as tf
 import tensorflow_addons as tfa
 
 from data import get_combinations
+from model import TrackNet
 from eval import MOTMetric
-from model import TrackNet, TrackNetModel
-from utils import re_identification, resize_bb, show_frame_with_bb, slice_image
+from utils import resize_bb, show_frame_with_bb, slice_image
+from embeds import EmbeddingsDatabase
 
 
 def get_batch(image_file, label_file, combination, image_size=128):
@@ -75,6 +76,7 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
     visual: Visualize the frame with bounding boxes and ids.
   """
     mot_validation = MOTMetric(auto_id=True)
+    embeds_database = EmbeddingsDatabase(memory_length=15, memory_update=0.75)
 
     # Get the label file.
     with open(label_file, 'rb') as file:
@@ -97,8 +99,7 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
             new_embeddings.append(embedding)
 
         # Perform the re-identification
-        embeds_dict, hypothesis_ids = re_identification(embeds_dict, new_embeddings,
-                                                        method='Euclidean', max_dist=0.1, update=False)
+        hypothesis_ids = embeds_database.match_embeddings(new_embeddings, max_distance=0.2)
 
         # Loop over every frame in the sequence (starting at second frame).
         for i, frame in enumerate(sequence['MVI_39511'][1:]):
@@ -124,8 +125,7 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
                 object_bbs = np.append(object_bbs, np.array([[left, top, right, bottom]]), axis=0)
 
             # Perform the re-identification
-            embeds_dict, hypothesis_ids = re_identification(embeds_dict, new_embeddings,
-                                                            method='Euclidean', max_dist=0.1, update=False)
+            hypothesis_ids = embeds_database.match_embeddings(new_embeddings, max_distance=0.2)
 
             # Update the MOT metric.
             hypothese_bbs = object_bbs.copy()  # NOTE: THIS IS TEMPORARY!
@@ -136,8 +136,8 @@ def run_validation(model, image_file, label_file, image_size=128, visual=False):
                 # Visualize the frame with bouding boxes and ids.
                 show_frame_with_bb(frame, object_bbs.copy(), hypothesis_ids)
 
-        # Return the MOT accuracy score.
-        return mot_validation.get_MOTA()
+        # Return the MOT validation object
+        return mot_validation
 
 
 def train_model(model, image_files, label_files, epochs, learning_rate):
@@ -210,7 +210,7 @@ def train_model(model, image_files, label_files, epochs, learning_rate):
 
 if __name__ == "__main__":
     # Select the model and data.
-    model = TrackNetModel
+    model = TrackNet(padding='valid', use_bias=False)
     image_files = ['../data/detrac_first_seq_images.h5']
     label_files = ['../data/detrac_first_seq_labels.bin']
 
@@ -230,4 +230,7 @@ if __name__ == "__main__":
     new_model.load_weights(model_path)
 
     # Run the validation with visualization
-    MOTA_score = run_validation(new_model, image_files[0], label_files[0], visual=True)
+    MOT_object = run_validation(new_model, image_files[0], label_files[0], visual=True)
+    print(MOT_object.get_MOTA())
+
+
