@@ -71,9 +71,9 @@ def show_frame_with_bb(frame, bboxes, ids, fps=30):
                                   facecolor='none')
         ax.add_patch(bbox_)
         ax.text(left, top, ids[i],
-            color='m', 
-            ha='right', 
-            va='bottom')
+                color='m',
+                ha='right',
+                va='bottom')
 
     # Show the frame with the bounding boxes and ids.
     plt.show(block=False)

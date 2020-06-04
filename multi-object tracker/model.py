@@ -76,3 +76,4 @@ class TrackNet(Model):
         x = self.flat6(x)
         x = self.dens6(x)
         return self.l2norm(x)
+
