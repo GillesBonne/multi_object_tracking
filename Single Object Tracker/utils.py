@@ -44,64 +44,6 @@ def calc_cosine_sim(v1, v2):
     return abs(np.dot(v1, v2_T) / (np.sqrt(np.dot(v1, v1_T)) * np.sqrt(np.dot(v2, v2_T))))
 
 
-def re_identification(embeds_dict, new_embeds, method='Euclidean', max_dist=0.1, update=False):
-    """Link the current embeddings to the embedding of the previous frame.
-
-  Args:
-    embeds_dict: Dict with the ids as keys and the embeddings as values.
-      For the initial frame, the 'embeds_dict' object is an empty dict.
-    new_embeds: New embeddings that have to be linked and assigned with id.
-    method: Method to use for comparison: 'Euclidean' or 'cosine'.
-    max_dist: Maximum distance between embeddings before they are not linked.
-    update: When set to True, the 'embeds_dict' is updated with the new embeddings.
-
-    NOTE: Two embeddings can get the same identification!  
-  """
-    # Convert dict to ordered dict to preserve the order.
-    embeds_dict = OrderedDict(embeds_dict)
-    embeds_list = embeds_dict.values()
-
-    # Select the similarity function
-    if method == 'Euclidean':
-        function = calc_distance
-    elif method == 'cosine':
-        function = calc_cosine_sim
-
-    # Find the best matching embedding
-    ids_list = []
-    for new_embed in new_embeds:
-        if not embeds_list:
-            # No embedding in 'embeds_dict' to compare with
-            new_id = max(embeds_dict.keys())+1 if embeds_dict else 0
-            embeds_dict[new_id] = new_embed
-            ids_list.append(new_id)
-            continue
-
-        # Calculate the similarity between embeddings
-        similarity = []
-        for embed in embeds_list:
-            similarity.append(function(new_embed, embed))
-
-        min_value = min(similarity)
-        index = similarity.index(min_value)
-
-        if min_value > max_dist:
-            # Distance too large, assign new id
-            new_id = max(embeds_dict.keys())+1
-            embeds_dict[new_id] = new_embed
-            ids_list.append(new_id)
-            continue
-
-        id_match = list(embeds_dict.keys())[index]
-        ids_list.append(id_match)
-
-        if update:
-            # Update the dict with the new embedding
-            embeds_dict[id_match] = new_embed
-
-    return embeds_dict, ids_list
-
-
 def show_frame_with_bb(frame, bboxes, ids, fps=30):
     """Visualize the video frame with bounding boxes and ids.
 

@@ -76,9 +76,3 @@ class TrackNet(Model):
         x = self.flat6(x)
         x = self.dens6(x)
         return self.l2norm(x)
-
-
-# Create an instance of the model.
-TrackNetModel = TrackNet(padding='valid', use_bias=False)
-
-
