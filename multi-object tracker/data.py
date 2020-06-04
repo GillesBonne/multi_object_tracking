@@ -60,6 +60,12 @@ def get_combinations(labels_file):
                     combs = set(list(itertools.combinations(frame_window, 2)))
                     frame_combinations.update(combs)
 
+            num_combinations_per_seq_per_obj = 10
+            frame_combinations = np.array(list(frame_combinations))
+            frame_indices = np.random.choice(
+                len(frame_combinations), num_combinations_per_seq_per_obj, replace=True)
+            frame_combinations = frame_combinations[frame_indices]
+
             # Get all the combination from the window options.
             for frame_first, frame_second in frame_combinations:
                 frame_anchor, frame_positive = np.random.choice(
