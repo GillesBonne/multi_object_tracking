@@ -35,26 +35,16 @@ def get_combinations(labels_file):
             if len(occurrences) < 2:
                 continue
 
-            # Check if object is not seen in all sequential frames.
-            for i, occurrence in enumerate(occurrences):
-                if i == 0:
-                    continue
-                else:
-                    if occurrences[i] != occurrences[i-1] + 1:
-                        print('There is a case for which an object is not seen in all sequential frames.')
-                        print('The object occurs in the following frames:')
-                        print(occurrences)
-
             # Specify the window size of the object scan across the video.
-            window_size = 5
+            window_size = 20
             if window_size < 2:
-                raise ValueError('Window size should be larger than 2.')
+                raise ValueError('Window size should be larger than 1.')
 
             # Get all window options with the specified window size.
             frame_combinations = set()
             for i in range(len(occurrences)):
                 frame_window = occurrences[i:i+window_size]
-                if len(frame_window) < window_size:
+                if len(frame_window) < 2:
                     continue
                 else:
                     combs = set(list(itertools.combinations(frame_window, 2)))
