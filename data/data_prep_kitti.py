@@ -55,7 +55,7 @@ with h5py.File(filename_export_images, 'w') as hf_images:
                         'rotation_y']
         df_labels = pd.read_csv(label_file, sep=' ', names=header_names)
         df_labels = df_labels[df_labels['type'] != 'DontCare'].reset_index(drop=True)
-        df_labels = df_labels.drop(columns=['truncated', 'occluded', 'alpha',
+        df_labels = df_labels.drop(columns=['truncated', 'alpha',
                                             'dim_heigth', 'dim_width', 'dim_length',
                                             'loc_x', 'loc_y', 'loc_z', 'rotation_y'])
 
@@ -101,6 +101,7 @@ with h5py.File(filename_export_images, 'w') as hf_images:
 
                 # Save all the necessary labels.
                 object_labels_data['track_id'] = int(row['track_id'])
+                object_labels_data['occluded'] = int(row['occluded'])
                 object_labels_data['type'] = row['type']
                 object_labels_data['left'] = round(row['left'])
                 object_labels_data['top'] = round(row['top'])
