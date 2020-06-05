@@ -79,3 +79,28 @@ def show_frame_with_bb(frame, bboxes, ids, fps=30):
     plt.show(block=False)
     plt.pause(1/fps)
     plt.close()
+
+
+def check_acceptable_splits(dataset, train, val, test):
+    """Check if the chosen train/val/test splits are valid.
+
+  Args:
+    dataset: Type of dataset that is used.
+    train: List of sequence numbers for training.
+    val: List of sequence numbers for validation.
+    test: List of sequence numbers for testing.
+  """
+    sequences = [*train, *val, *test]
+
+    # Check if the splits overlap.
+    if len(sequences) != len(set(sequences)):
+        raise ValueError('Overlap between splits detected.')
+
+    # Check if all chosen sequences are valid.
+    if dataset == 'kitti':
+        if np.any(np.array(sequences) < 0):
+            raise ValueError('Sequence lower than 0 not possible.')
+        elif np.any(np.array(sequences) > 20):
+            raise ValueError('Sequence higher than 20 not possible.')
+    else:
+        raise ValueError('Function not defined for this dataset. The available dataset is: kitti')
