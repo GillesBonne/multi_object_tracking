@@ -66,7 +66,7 @@ def get_batch(images_file, labels_file, combination, image_size=128):
     return image_array, label_array
 
 
-def run_validation(model, images_file, labels_file, sequences_val, image_size=128, visual=False):
+def run_validation(model, images_file, labels_file, sequences_val, memory_length, memory_update, image_size=128, visual=False):
     """Run validation sequence on model.
 
   Args:
@@ -77,7 +77,7 @@ def run_validation(model, images_file, labels_file, sequences_val, image_size=12
     visual: Visualize the frame with bounding boxes and ids.
   """
     mot_validation = MOTMetric(auto_id=True)
-    embeds_database = EmbeddingsDatabase(memory_length=30, memory_update=0.75)
+    embeds_database = EmbeddingsDatabase(memory_length, memory_update)
 
     # Get the label file.
     with open(labels_file, 'rb') as file:
@@ -145,7 +145,9 @@ def run_validation(model, images_file, labels_file, sequences_val, image_size=12
         return mot_validation
 
 
-def train_model(model, image_files, label_files, epochs, learning_rate,
+def train_model(model, images_file, labels_file, epochs, learning_rate,
+                window_size, num_combi_per_obj_per_epoch,
+                memory_length, memory_update,
                 sequences_train, sequences_val):
     """Create training loop for the object tracker model.
 
@@ -170,7 +172,8 @@ def train_model(model, image_files, label_files, epochs, learning_rate,
     # Training loop.
     for epoch in range(epochs):
         # Get all bouding box combinations for this sequence.
-        combinations = get_combinations(labels_file, sequences_train)
+        combinations = get_combinations(labels_file, sequences_train,
+                                        window_size, num_combi_per_obj_per_epoch)
 
         for combination in combinations:
             images, labels = get_batch(images_file, labels_file, combination)
@@ -186,7 +189,8 @@ def train_model(model, image_files, label_files, epochs, learning_rate,
             train_loss.update_state(loss)
 
         # Run validation program on sequence and get score.
-        MOTA_score = run_validation(model, images_file, labels_file, sequences_val)
+        MOTA_score = run_validation(model, images_file, labels_file,
+                                    sequences_val, memory_length, memory_update)
 
         if epoch % 1 == 0:
             print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.1%}".format(
@@ -221,15 +225,26 @@ if __name__ == "__main__":
     epochs = 3
     learning_rate = 0.001
 
+    memory_length = 30
+    memory_update = 0.75
+
+    window_size = 35
+    num_combi_per_obj_per_epoch = 10
+
     # Choose train/val/test.
     sequences_train = [0, 1]
     sequences_val = [2]
     sequences_test = [3]
     check_acceptable_splits('kitti', sequences_train, sequences_val, sequences_test)
 
+    print('Amount of combinations per epoch: ', len(get_combinations(
+        labels_file, sequences_train, window_size, num_combi_per_obj_per_epoch)))
+
     # Train the model
     model = train_model(model, images_file, labels_file,
                         epochs, learning_rate,
+                        window_size, num_combi_per_obj_per_epoch,
+                        memory_length, memory_update,
                         sequences_train, sequences_val)
 
     # Save the weights of the model
@@ -241,5 +256,6 @@ if __name__ == "__main__":
     new_model.load_weights(model_path)
 
     # Run the validation with visualization
-    MOT_object = run_validation(new_model, images_file, labels_file, sequences_val, visual=True)
+    MOT_object = run_validation(new_model, images_file, labels_file,
+                                sequences_val, memory_length, memory_update, visual=True)
     print(MOT_object.get_MOTA())
