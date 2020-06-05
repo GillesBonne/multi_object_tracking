@@ -11,8 +11,8 @@ import pandas as pd
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
 # List import files downloaded from http://www.cvlibs.net/datasets/kitti/eval_tracking.php.
-scene_movie_dir = 'data/training/image_02'
-scene_label_dir = 'data/training/label_02'
+scene_movie_dir = 'data_kitti/sequences'
+scene_label_dir = 'data_kitti/annotations'
 scene_images_dirs = sorted(np.array(os.listdir(scene_movie_dir)))
 scene_labels = sorted(np.array(os.listdir(scene_label_dir)))
 
@@ -23,10 +23,10 @@ if not np.array_equal(scene_images_dirs, np.char.replace(scene_labels, '.txt', '
 labels_data = {}
 
 # Export only 1 sequence?
-export_only_first_sequence = True
+export_only_first_sequence = False
 
 # Naming of export files.
-dataset_name = 'kitti_first_seq'
+dataset_name = 'kitti'
 filename_export_images = '_'.join([dataset_name, 'images.h5'])
 filename_export_labels = '_'.join([dataset_name, 'labels.bin'])
 
