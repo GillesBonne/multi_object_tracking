@@ -39,7 +39,7 @@ def get_combinations(labels_file, sequences):
                     continue
 
                 # Specify the window size of the object scan across the video.
-                window_size = 20
+                window_size = 35
                 if window_size < 2:
                     raise ValueError('Window size should be larger than 1.')
 

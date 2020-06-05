@@ -77,7 +77,7 @@ def run_validation(model, images_file, labels_file, sequences_val, image_size=12
     visual: Visualize the frame with bounding boxes and ids.
   """
     mot_validation = MOTMetric(auto_id=True)
-    embeds_database = EmbeddingsDatabase(memory_length=15, memory_update=0.75)
+    embeds_database = EmbeddingsDatabase(memory_length=30, memory_update=0.75)
 
     # Get the label file.
     with open(labels_file, 'rb') as file:
