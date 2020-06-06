@@ -8,7 +8,7 @@ import pickle
 import numpy as np
 
 
-def get_combinations(labels_file, sequences):
+def get_combinations(labels_file, sequences, window_size, num_combi_per_obj_per_epoch):
     """Get the combinations for anchor, positive and negative sample."""
 
     # Import Python pickle file.
@@ -38,8 +38,6 @@ def get_combinations(labels_file, sequences):
                 if len(occurrences) < 2:
                     continue
 
-                # Specify the window size of the object scan across the video.
-                window_size = 20
                 if window_size < 2:
                     raise ValueError('Window size should be larger than 1.')
 
@@ -53,10 +51,10 @@ def get_combinations(labels_file, sequences):
                         combs = set(list(itertools.combinations(frame_window, 2)))
                         frame_combinations.update(combs)
 
-                num_combinations_per_seq_per_obj = 10
+                num_combi_per_obj_per_epoch = 10
                 frame_combinations = np.array(list(frame_combinations))
                 frame_indices = np.random.choice(
-                    len(frame_combinations), num_combinations_per_seq_per_obj, replace=True)
+                    len(frame_combinations), num_combi_per_obj_per_epoch, replace=True)
                 frame_combinations = frame_combinations[frame_indices]
 
                 # Get all the combination from the window options.
@@ -76,4 +74,4 @@ def get_combinations(labels_file, sequences):
 
 if __name__ == '__main__':
     print('Number of combinations per epoch: {}.'.format(
-        len(get_combinations('../data/kitti_labels.bin', [1, 8]))))
+        len(get_combinations('../data/kitti_labels.bin', [1, 8], window_size=35, num_combi_per_obj_per_epoch=10))))

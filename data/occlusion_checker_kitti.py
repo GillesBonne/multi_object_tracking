@@ -5,6 +5,7 @@ if __name__ == '__main__':
     with open('kitti_labels.bin', 'rb') as file:
         labels = pickle.load(file)
 
+    amount_of_invisible_frames = []
     for sequence in labels:
         frames_per_id = labels[sequence]['frames_per_id']
         for id in frames_per_id:
@@ -17,6 +18,10 @@ if __name__ == '__main__':
                         print('Object is completely occluded')
                         print('Sequence: ', sequence)
                         print('ID: ', id)
-                        print('Frame: ', frames[i])
-                        print(frames)
+                        print('Frame prev: ', frames[i-1])
+                        print('Frame curr: ', frames[i])
                         print()
+                        amount_of_invisible_frames.append(frames[i]-frames[i-1]-1)
+
+    print('Amount of invisible frames.')
+    print(amount_of_invisible_frames)
