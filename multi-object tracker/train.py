@@ -2,7 +2,6 @@
 
 from __future__ import absolute_import, division, print_function
 
-import os
 import pickle
 
 import h5py
@@ -66,7 +65,8 @@ def get_batch(images_file, labels_file, combination, image_size=128):
     return image_array, label_array
 
 
-def run_validation(model, images_file, labels_file, sequences_val, memory_length, memory_update, image_size=128, visual=False):
+def run_validation(model, images_file, labels_file, sequences_val,
+                   memory_length, memory_update, image_size=128, visual=False):
     """Run validation sequence on model.
 
   Args:

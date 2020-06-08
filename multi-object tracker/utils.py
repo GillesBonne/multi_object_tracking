@@ -2,8 +2,6 @@
 
 from __future__ import absolute_import, division, print_function
 
-from collections import OrderedDict
-
 import cv2
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt

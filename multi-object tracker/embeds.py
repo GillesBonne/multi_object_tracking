@@ -1,19 +1,19 @@
 """Class for handling the embedding database."""
 
 import numpy as np
-
 from scipy.optimize import linear_sum_assignment
-from utils import calc_distance, calc_cosine_sim
+
+from utils import calc_cosine_sim, calc_distance
 
 
 class EmbeddingsDatabase():
-    """Class for handling the embedding database. Database consists of list of tuples 
+    """Class for handling the embedding database. Database consists of list of tuples
     that have the following structure: (id, calls_since_last_update, embedding_vector)."""
-    
+
     def __init__(self, memory_length=15, memory_update=1, metric='Euclidean'):
         self.database = []  # Create empty database
-        self.curr_max_id = 0  # Current highest identification number in the database   
-        
+        self.curr_max_id = 0  # Current highest identification number in the database
+
         self.memory_length = memory_length  # Length in frames to memorize the embeddings
         self.memory_update = memory_update  # Memory update value (0 is no update, 1 is replace)
 
@@ -31,15 +31,16 @@ class EmbeddingsDatabase():
     def update_embedding(self, new_embedding, index):
         """Update single embedding in the database."""
         t = self.database[index]
-        self.database[index] = (t[0], 0, (1-self.memory_update) * t[2] \
-                                                    + self.memory_update * new_embedding)
+        self.database[index] = (t[0],
+                                0,
+                                (1-self.memory_update) * t[2] + self.memory_update * new_embedding)
         return t[0]
 
     def add_embedding(self, new_embedding):
         """Add new embedding to the database."""
         new_embedding_id = self.curr_max_id
         self.curr_max_id += 1
-        
+
         self.database.append((new_embedding_id, 0, new_embedding))
         return new_embedding_id
 

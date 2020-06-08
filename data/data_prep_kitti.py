@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import pickle
@@ -10,7 +9,6 @@ import pandas as pd
 
 logging.basicConfig(format='%(message)s', level=logging.INFO)
 
-# List import files downloaded from http://www.cvlibs.net/datasets/kitti/eval_tracking.php.
 scene_movie_dir = 'data_kitti/sequences'
 scene_label_dir = 'data_kitti/annotations'
 scene_images_dirs = sorted(np.array(os.listdir(scene_movie_dir)))
