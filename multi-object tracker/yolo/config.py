@@ -51,7 +51,9 @@ class ConfigParser(object):
         keras_weights = self._pretrained_config["keras_format"]
         if os.path.exists(keras_weights):
             model.load_weights(keras_weights)
-            print("Keras pretrained weights loaded from {}!!".format(keras_weights))
+            # *disable print statement*
+            # print("Keras pretrained weights loaded from {}!!".format(keras_weights))
+            # *disable print statement*
         else:
             # *inserted to prevent download*
             raise Exception('Weights file not found, check \"keras_format\"" in \"kitti.json\" file')

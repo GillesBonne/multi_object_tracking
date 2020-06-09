@@ -139,7 +139,8 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
 
     # Create empty list for the metrics.
     train_loss_results = []
-    mot_metric_results = []
+    mot_accuracy_results = []
+    mot_precision_results = []
 
     # Define the loss, optimizer and metric(s).
     loss_object = tfa.losses.TripletSemiHardLoss()
@@ -167,27 +168,31 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
 
         # Run validation program on sequence and get score.
         tracker = MultiTrackNet(model)
-        MOTA_score = run_validation(tracker, images_file, labels_file,
+        MOT_metric = run_validation(tracker, images_file, labels_file,
                                     sequences_val, memory_length, memory_update)
 
         if epoch % 1 == 0:
-            print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.1%}".format(
-                epoch, train_loss.result(), MOTA_score.get_MOTA()))
+            print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.1%}, Precision: {:.1%}".format(
+                epoch, train_loss.result(), MOT_metric.get_MOTA(), MOT_metric.get_MOTP()))
 
         # Append the results.
         train_loss_results.append(train_loss.result())
-        mot_metric_results.append(MOTA_score.get_MOTA())
+        mot_accuracy_results.append(MOT_metric.get_MOTA())
+        mot_precision_results.append(MOT_metric.get_MOTP())
 
     # Visualize the results of training.
-    fig, axes = plt.subplots(2, sharex=True, figsize=(7, 5))
+    fig, axes = plt.subplots(3, sharex=True, figsize=(7, 7))
     fig.suptitle("Training Metrics", fontsize=14)
 
     axes[0].set_ylabel("Loss", fontsize=12)
     axes[0].plot(train_loss_results)
 
     axes[1].set_ylabel("Accuracy", fontsize=12)
-    axes[1].set_xlabel("Epoch", fontsize=12)
-    axes[1].plot(mot_metric_results)
+    axes[1].plot(mot_accuracy_results)
+
+    axes[2].set_ylabel("Precision", fontsize=12)
+    axes[2].set_xlabel("Epoch", fontsize=12)
+    axes[2].plot(mot_precision_results)
     plt.show()
 
     return model
@@ -237,12 +242,12 @@ if __name__ == "__main__":
     tracker = MultiTrackNet(new_model)
 
     # Run the validation with visualization
-    MOT_object = run_validation(tracker, images_file, labels_file,
+    MOT_metric = run_validation(tracker, images_file, labels_file,
                                 sequences_test, memory_length, memory_update, visual='re-id')
     
     # Print some of the statistics
     print('\nTest results:')
-    print('Multi-object tracking accuracy: {:.1%}'.format(MOT_object.get_MOTA()))
-    print('Multi-object tracking precision: {:.1%}'.format(MOT_object.get_MOTP()))
-    print('Multi-object detection precision: {:.1%}'.format(MOT_object.get_precision()))
-    print('Multi-object detection recall: {:.1%}\n'.format(MOT_object.get_recall()))
+    print('Multi-object tracking accuracy: {:.1%}'.format(MOT_metric.get_MOTA()))
+    print('Multi-object tracking precision: {:.1%}'.format(MOT_metric.get_MOTP()))
+    print('Multi-object detection precision: {:.1%}'.format(MOT_metric.get_precision()))
+    print('Multi-object detection recall: {:.1%}\n'.format(MOT_metric.get_recall()))
