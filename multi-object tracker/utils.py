@@ -47,7 +47,7 @@ def calc_cosine_sim(v1, v2):
     return abs(np.dot(v1, v2_T) / (np.sqrt(np.dot(v1, v1_T)) * np.sqrt(np.dot(v2, v2_T))))
 
 
-def show_frame_with_ids(frame, bboxes, ids, fps=30):
+def show_frame_with_ids(frame, bboxes, ids, frame_num, seq_name):
     """Visualize the video frame with bounding boxes and ids.
 
   Args:
@@ -77,10 +77,10 @@ def show_frame_with_ids(frame, bboxes, ids, fps=30):
                 ha='right',
                 va='bottom')
 
-    # # Show the frame with the bounding boxes and ids.
-    # Path(seq_name).mkdir(parents=True, exist_ok=True)
-    # fig.savefig('{}/frame{}.png'.format(seq_name, frame_index))
-    # plt.close()
+    # Show the frame with the bounding boxes and ids.
+    Path(seq_name).mkdir(parents=True, exist_ok=True)
+    fig.savefig('{}/frame{}.jpg'.format(seq_name, frame_num))
+    plt.close()
 
 
 def show_frame_with_labels(frame, bboxes, labels, probs, fps=30):
