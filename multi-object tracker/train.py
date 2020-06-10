@@ -119,7 +119,7 @@ def run_validation(model, images_file, labels_file, sequences_val, memory_length
                     show_frame_with_labels(frame, boxes, labels, probs)
 
         # Return the MOT metric object
-        return mot_metric
+        return mot_metric, embeds_database.get_average_cost()
 
 
 def train_model(model, images_file, labels_file, epochs, learning_rate,
@@ -168,7 +168,7 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
 
         # Run validation program on sequence and get score.
         tracker = MultiTrackNet(model)
-        MOT_metric = run_validation(tracker, images_file, labels_file,
+        MOT_metric, avg_cost = run_validation(tracker, images_file, labels_file,
                                     sequences_val, memory_length, memory_update)
 
         if epoch % 1 == 0:
@@ -212,7 +212,7 @@ if __name__ == "__main__":
     memory_update = 0.75
 
     window_size = 35
-    num_combi_per_obj_per_epoch = 10
+    num_combi_per_obj_per_epoch = 1
 
     # Choose train/val/test.
     sequences_train = [0, 1]
