@@ -2,7 +2,6 @@
 
 from __future__ import absolute_import, division, print_function
 
-import os
 import pickle
 
 import h5py
@@ -11,14 +10,13 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_addons as tfa
 
-from model import TrackNet
-from model_extension import MultiTrackNet
-
 from data import get_combinations
 from embeds import EmbeddingsDatabase
 from eval import MOTMetric
+from model import TrackNet
+from model_extension import MultiTrackNet
 from utils import (check_acceptable_splits, resize_bb, show_frame_with_ids,
-                   slice_image, show_frame_with_labels)
+                   show_frame_with_labels, slice_image)
 
 
 def get_batch(images_file, labels_file, combination, image_size=128):
@@ -68,8 +66,8 @@ def get_batch(images_file, labels_file, combination, image_size=128):
     return image_array, label_array
 
 
-def run_validation(model, images_file, labels_file, sequences_val, memory_length, 
-            memory_update, image_size=128, visual=None):
+def run_validation(model, images_file, labels_file, sequences_val, memory_length,
+                   memory_update, image_size=128, visual=None):
     """Run validation sequence on model.
 
   Args:
@@ -80,7 +78,7 @@ def run_validation(model, images_file, labels_file, sequences_val, memory_length
     visual: Visualize the frame with bounding boxes and ids.
   """
     mot_metric = MOTMetric(auto_id=True)
-    embeds_database = EmbeddingsDatabase(memory_length, memory_update)    
+    embeds_database = EmbeddingsDatabase(memory_length, memory_update)
 
     # Get the label file.
     with open(labels_file, 'rb') as file:
@@ -98,8 +96,8 @@ def run_validation(model, images_file, labels_file, sequences_val, memory_length
                 obj_ids, obj_bbs = [], []
                 for label in gt_labels.values():
                     obj_ids.append(label['track_id'])
-                    obj_bbs.append([label['left'], label['top'], 
-                                                label['right'], label['bottom']])
+                    obj_bbs.append([label['left'], label['top'],
+                                    label['right'], label['bottom']])
 
                 # Get the embeddings and bouding boxes by running the model
                 embeddings, boxes, labels, probs = model(frame)
@@ -110,11 +108,13 @@ def run_validation(model, images_file, labels_file, sequences_val, memory_length
 
                 # Update the MOT metric.
                 mot_metric.update(obj_ids, hyp_ids,
-                        np.array(obj_bbs.copy()), np.array(hyp_bbs.copy()))
+                                  np.array(obj_bbs.copy()), np.array(hyp_bbs.copy()))
 
                 if visual == 're-id':
+
                     # Visualize the frame with bouding boxes and ids.
-                    show_frame_with_ids(frame, hyp_bbs.copy(), hyp_ids)
+                    show_frame_with_ids(frame, hyp_bbs.copy(), hyp_ids,
+                                        frame_num=i, seq_name='seq{}'.format(str(seq)))
                 elif visual == 'detect':
                     show_frame_with_labels(frame, boxes, labels, probs)
 
@@ -141,6 +141,7 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
     train_loss_results = []
     mot_accuracy_results = []
     mot_precision_results = []
+    mot_switches_results = []
 
     # Define the loss, optimizer and metric(s).
     loss_object = tfa.losses.TripletSemiHardLoss()
@@ -169,7 +170,7 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
         # Run validation program on sequence and get score.
         tracker = MultiTrackNet(model)
         MOT_metric, avg_cost = run_validation(tracker, images_file, labels_file,
-                                    sequences_val, memory_length, memory_update)
+                                              sequences_val, memory_length, memory_update)
 
         if epoch % 1 == 0:
             print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.1%}, Precision: {:.1%}".format(
@@ -179,9 +180,10 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
         train_loss_results.append(train_loss.result())
         mot_accuracy_results.append(MOT_metric.get_MOTA())
         mot_precision_results.append(MOT_metric.get_MOTP())
+        mot_switches_results.append(MOT_metric.get_num_switches())
 
     # Visualize the results of training.
-    fig, axes = plt.subplots(3, sharex=True, figsize=(7, 7))
+    fig, axes = plt.subplots(4, sharex=True, figsize=(7, 7))
     fig.suptitle("Training Metrics", fontsize=14)
 
     axes[0].set_ylabel("Loss", fontsize=12)
@@ -193,31 +195,44 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
     axes[2].set_ylabel("Precision", fontsize=12)
     axes[2].set_xlabel("Epoch", fontsize=12)
     axes[2].plot(mot_precision_results)
+
+    axes[3].set_ylabel("Number of switches", fontsize=12)
+    axes[3].set_xlabel("Epoch", fontsize=12)
+    axes[3].plot(mot_switches_results)
     plt.show()
+
+    # Save training metrics.
+    np.savetxt('metrics/train_loss.txt', train_loss_results)
+    np.savetxt('metrics/mot_accuracy.txt', mot_accuracy_results)
+    np.savetxt('metrics/mot_precision.txt', mot_precision_results)
+    np.savetxt('metrics/mot_switches.txt', mot_switches_results)
 
     return model
 
 
 if __name__ == "__main__":
+    physical_devices = tf.config.list_physical_devices('GPU')
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
     # Select the model and data.
     model = TrackNet(padding='valid', use_bias=False)
     images_file = '../data/kitti_images.h5'
     labels_file = '../data/kitti_labels.bin'
 
     # Settings for the train process
-    epochs = 3
-    learning_rate = 0.001
+    epochs = 4
+    learning_rate = 0.01
 
     memory_length = 30
     memory_update = 0.75
 
-    window_size = 35
+    window_size = 10
     num_combi_per_obj_per_epoch = 1
 
     # Choose train/val/test.
-    sequences_train = [0, 1]
-    sequences_val = [2]
-    sequences_test = [3]
+    sequences_train = [0]
+    sequences_val = [12]
+    sequences_test = [14]
     check_acceptable_splits('kitti', sequences_train, sequences_val, sequences_test)
 
     print('Amount of combinations per epoch: ', len(get_combinations(
@@ -242,9 +257,9 @@ if __name__ == "__main__":
     tracker = MultiTrackNet(new_model)
 
     # Run the validation with visualization
-    MOT_metric = run_validation(tracker, images_file, labels_file,
-                                sequences_test, memory_length, memory_update, visual='re-id')
-    
+    MOT_metric, _ = run_validation(tracker, images_file, labels_file,
+                                   sequences_test, memory_length, memory_update, visual='re-id')
+
     # Print some of the statistics
     print('\nTest results:')
     print('Multi-object tracking accuracy: {:.1%}'.format(MOT_metric.get_MOTA()))

@@ -2,13 +2,14 @@
 
 from __future__ import absolute_import, division, print_function
 
-import cv2
+from collections import OrderedDict
+from pathlib import Path
 
-import numpy as np
+import cv2
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
+import numpy as np
 
-from collections import OrderedDict
 from yolo.utils.box import visualize_boxes
 
 
@@ -46,14 +47,13 @@ def calc_cosine_sim(v1, v2):
     return abs(np.dot(v1, v2_T) / (np.sqrt(np.dot(v1, v1_T)) * np.sqrt(np.dot(v2, v2_T))))
 
 
-def show_frame_with_ids(frame, bboxes, ids, fps=30):
+def show_frame_with_ids(frame, bboxes, ids, frame_num, seq_name):
     """Visualize the video frame with bounding boxes and ids.
 
   Args:
     frame: Current video frame.
     bboxes: Bounding box data for objects in the current frame.
     ids: Identification number for the objects in the current frame.
-    fps: Frame per second, used to determine the pause in between frames.
   """
     # Convert frame and create the figure.
     figure_size = 8
@@ -78,8 +78,8 @@ def show_frame_with_ids(frame, bboxes, ids, fps=30):
                 va='bottom')
 
     # Show the frame with the bounding boxes and ids.
-    plt.show(block=False)
-    plt.pause(1/fps)
+    Path(seq_name).mkdir(parents=True, exist_ok=True)
+    fig.savefig('{}/frame{}.jpg'.format(seq_name, frame_num))
     plt.close()
 
 
@@ -99,10 +99,10 @@ def show_frame_with_labels(frame, bboxes, labels, probs, fps=30):
     # Show the frame with the bounding boxes, labels and probabilities.
     plt.imshow(frame.astype(np.uint8))
     plt.axis('off')
-    
+
     plt.show(block=False)
     plt.pause(1/fps)
-    plt.close()    
+    plt.close()
 
 
 def check_acceptable_splits(dataset, train, val, test):

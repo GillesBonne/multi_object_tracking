@@ -19,6 +19,7 @@ if __name__ == '__main__':
                 else:
                     if frames[i] != frames[i-1] + 1:
                         amount_of_invisible_frames.append(frames[i]-frames[i-1]-1)
+                        print(sequence)
 
     print('Length of temporary complete occlusion of an object.')
     print(amount_of_invisible_frames)

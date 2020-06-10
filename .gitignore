@@ -3,6 +3,9 @@ data/data_detrac/
 data/data_kitti/
 *.h5
 *.bin
+model/
+seq*/
+metrics/
 saved_model/
 .DS_Store
 other/
