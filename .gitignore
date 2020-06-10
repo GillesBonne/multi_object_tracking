@@ -3,7 +3,9 @@ data/data_detrac/
 data/data_kitti/
 *.h5
 *.bin
-model/
+saved_model/
+.DS_Store
+other/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
