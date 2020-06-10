@@ -4,6 +4,8 @@ data/data_kitti/
 *.h5
 *.bin
 model/
+seq*/
+metrics/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

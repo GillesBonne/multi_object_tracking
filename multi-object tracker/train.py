@@ -139,7 +139,8 @@ def run_validation(model, images_file, labels_file, sequences_val,
 
                 if visual:
                     # Visualize the frame with bouding boxes and ids.
-                    show_frame_with_bb(frame, object_bbs.copy(), hypothesis_ids)
+                    show_frame_with_bb(frame, object_bbs.copy(), hypothesis_ids,
+                                       seq_name, frame_index=i)
 
         # Return the MOT validation object
         return mot_validation
@@ -163,6 +164,13 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
     # Create empty list for the metrics.
     train_loss_results = []
     mot_metric_results = []
+
+    motp_results = []
+    matches_results = []
+    switches_results = []
+    misses_results = []
+    precision_results = []
+    recall_results = []
 
     # Define the loss, optimizer and metric(s).
     loss_object = tfa.losses.TripletSemiHardLoss()
@@ -200,6 +208,13 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
         train_loss_results.append(train_loss.result())
         mot_metric_results.append(MOTA_score.get_MOTA())
 
+        motp_results.append(MOTA_score.get_MOTP())
+        matches_results.append(MOTA_score.get_num_matches())
+        switches_results.append(MOTA_score.get_num_switches())
+        misses_results.append(MOTA_score.get_num_misses())
+        precision_results.append(MOTA_score.get_precision())
+        recall_results.append(MOTA_score.get_recall())
+
     # Visualize the results of training.
     fig, axes = plt.subplots(2, sharex=True, figsize=(7, 5))
     fig.suptitle("Training Metrics", fontsize=14)
@@ -212,6 +227,17 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
     axes[1].plot(mot_metric_results)
     plt.show()
 
+    # Save training metrics.
+    np.savetxt('metrics/train_loss.txt', train_loss_results)
+    np.savetxt('metrics/mot_metric.txt', mot_metric_results)
+
+    np.savetxt('metrics/motp.txt', motp_results)
+    np.savetxt('metrics/matches.txt', matches_results)
+    np.savetxt('metrics/switches.txt', switches_results)
+    np.savetxt('metrics/misses.txt', misses_results)
+    np.savetxt('metrics/precision.txt', precision_results)
+    np.savetxt('metrics/recall.txt', recall_results)
+
     return model
 
 
@@ -222,8 +248,8 @@ if __name__ == "__main__":
     labels_file = '../data/kitti_labels.bin'
 
     # Settings for the train process
-    epochs = 3
-    learning_rate = 0.001
+    epochs = 10
+    learning_rate = 0.01
 
     memory_length = 30
     memory_update = 0.75
@@ -232,9 +258,9 @@ if __name__ == "__main__":
     num_combi_per_obj_per_epoch = 10
 
     # Choose train/val/test.
-    sequences_train = [0, 1]
-    sequences_val = [2]
-    sequences_test = [3]
+    sequences_train = [0, 1, 2]
+    sequences_val = [12]
+    sequences_test = [14]
     check_acceptable_splits('kitti', sequences_train, sequences_val, sequences_test)
 
     print('Amount of combinations per epoch: ', len(get_combinations(
@@ -257,5 +283,5 @@ if __name__ == "__main__":
 
     # Run the validation with visualization
     MOT_object = run_validation(new_model, images_file, labels_file,
-                                sequences_val, memory_length, memory_update, visual=True)
+                                sequences_test, memory_length, memory_update, visual=True)
     print(MOT_object.get_MOTA())
