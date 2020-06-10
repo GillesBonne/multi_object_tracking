@@ -97,8 +97,3 @@ class EmbeddingsDatabase():
         self.num_samples = 0  # Reset the number of samples
 
         return avg_cost
-
-
-
-
-

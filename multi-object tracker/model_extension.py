@@ -2,18 +2,20 @@
 
 import numpy as np
 
-from yolo.config import ConfigParser
 from utils import resize_bb
+from yolo.config import ConfigParser
+
 
 class MultiTrackNet():
     """Extension for the TrackNet identification network. Creating an end-to-end
-    tracking network with pretrained YOLO-v3 as detection network and the provided 
+    tracking network with pretrained YOLO-v3 as detection network and the provided
     TrackNet as re-identification network.
 
-    YOLO-v3 website: https://github.com/penny4860/tf2-eager-yolo3 
+    YOLO-v3 website: https://github.com/penny4860/tf2-eager-yolo3
     """
-    def __init__(self, trained_tracknet_network, 
-                            config_path='pretrained_model/kitti.json', bbox_size=128):
+
+    def __init__(self, trained_tracknet_network,
+                 config_path='pretrained_model/kitti.json', bbox_size=128):
         # Get the TrackNet model
         self.identifier = trained_tracknet_network
         self.config_path = config_path
@@ -47,4 +49,3 @@ class MultiTrackNet():
 
         # Return vector with embeddings (and more)
         return embeddings, boxes, labels, probs
-

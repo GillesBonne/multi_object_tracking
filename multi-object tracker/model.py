@@ -5,6 +5,7 @@ from __future__ import absolute_import, division, print_function
 import tensorflow as tf
 from tensorflow.keras import Model, layers
 
+
 class TrackNet(Model):
     def __init__(self, padding, use_bias):
         super(TrackNet, self).__init__()
