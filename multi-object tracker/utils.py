@@ -2,12 +2,15 @@
 
 from __future__ import absolute_import, division, print_function
 
+from collections import OrderedDict
 from pathlib import Path
 
 import cv2
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
+
+from yolo.utils.box import visualize_boxes
 
 
 def slice_image(im, dict_obj):
@@ -44,7 +47,7 @@ def calc_cosine_sim(v1, v2):
     return abs(np.dot(v1, v2_T) / (np.sqrt(np.dot(v1, v1_T)) * np.sqrt(np.dot(v2, v2_T))))
 
 
-def show_frame_with_bb(frame, bboxes, ids, seq_name, frame_index):
+def show_frame_with_ids(frame, bboxes, ids, fps=30):
     """Visualize the video frame with bounding boxes and ids.
 
   Args:
@@ -65,7 +68,7 @@ def show_frame_with_bb(frame, bboxes, ids, seq_name, frame_index):
     for i, bbox in enumerate(bboxes):
         left, top, right, bottom = bbox[0], bbox[1], bbox[2], bbox[3]
         bbox_ = patches.Rectangle((left, top), right-left, bottom-top,
-                                  linewidth=2,
+                                  linewidth=1,
                                   edgecolor='m',
                                   facecolor='none')
         ax.add_patch(bbox_)
@@ -74,9 +77,31 @@ def show_frame_with_bb(frame, bboxes, ids, seq_name, frame_index):
                 ha='right',
                 va='bottom')
 
-    # Show the frame with the bounding boxes and ids.
-    Path(seq_name).mkdir(parents=True, exist_ok=True)
-    fig.savefig('{}/frame{}.png'.format(seq_name, frame_index))
+    # # Show the frame with the bounding boxes and ids.
+    # Path(seq_name).mkdir(parents=True, exist_ok=True)
+    # fig.savefig('{}/frame{}.png'.format(seq_name, frame_index))
+    # plt.close()
+
+
+def show_frame_with_labels(frame, bboxes, labels, probs, fps=30):
+    """Visualize the video frame with bounding boxes, labels and probabilities.
+
+  Args:
+    frame: Current video frame.
+    bboxes: Bounding box data for objects in the current frame.
+    labels: Labels for the bounding boxes.
+    probs: Probabilities for the bounding boxes.
+    fps: Frame per second, used to determine the pause in between frames.
+  """
+    text_labels = ["Cyclist", "Misc", "Person_sitting", "Tram", "Truck", "Van", "Car", "Person"]
+    visualize_boxes(frame, bboxes, labels, probs, text_labels)
+
+    # Show the frame with the bounding boxes, labels and probabilities.
+    plt.imshow(frame.astype(np.uint8))
+    plt.axis('off')
+
+    plt.show(block=False)
+    plt.pause(1/fps)
     plt.close()
 
 

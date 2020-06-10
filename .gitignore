@@ -6,6 +6,9 @@ data/data_kitti/
 model/
 seq*/
 metrics/
+saved_model/
+.DS_Store
+other/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

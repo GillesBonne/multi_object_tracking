@@ -14,6 +14,8 @@ scene_label_dir = 'data_kitti/annotations'
 scene_images_dirs = sorted(np.array(os.listdir(scene_movie_dir)))
 scene_labels = sorted(np.array(os.listdir(scene_label_dir)))
 
+scene_images_dirs.remove('.DS_Store')  # Remove item from list on macOS
+
 if not np.array_equal(scene_images_dirs, np.char.replace(scene_labels, '.txt', '')):
     raise ValueError('Number of scenes for images and labels are not identical.')
 

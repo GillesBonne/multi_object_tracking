@@ -14,8 +14,9 @@ from data import get_combinations
 from embeds import EmbeddingsDatabase
 from eval import MOTMetric
 from model import TrackNet
-from utils import (check_acceptable_splits, resize_bb, show_frame_with_bb,
-                   slice_image)
+from model_extension import MultiTrackNet
+from utils import (check_acceptable_splits, resize_bb, show_frame_with_ids,
+                   show_frame_with_labels, slice_image)
 
 
 def get_batch(images_file, labels_file, combination, image_size=128):
@@ -65,8 +66,8 @@ def get_batch(images_file, labels_file, combination, image_size=128):
     return image_array, label_array
 
 
-def run_validation(model, images_file, labels_file, sequences_val,
-                   memory_length, memory_update, image_size=128, visual=False):
+def run_validation(model, images_file, labels_file, sequences_val, memory_length,
+                   memory_update, image_size=128, visual=None):
     """Run validation sequence on model.
 
   Args:
@@ -76,74 +77,48 @@ def run_validation(model, images_file, labels_file, sequences_val,
     image_size: Size of the bounding boxes after resize.
     visual: Visualize the frame with bounding boxes and ids.
   """
-    mot_validation = MOTMetric(auto_id=True)
+    mot_metric = MOTMetric(auto_id=True)
     embeds_database = EmbeddingsDatabase(memory_length, memory_update)
 
     # Get the label file.
     with open(labels_file, 'rb') as file:
-        label_dict = pickle.load(file)
+        labels_dict = pickle.load(file)
 
     # Open the validation sequence.
     with h5py.File(images_file, 'r') as sequence:
-
+        # Loop over every validation sequence
         for seq in sequences_val:
-            seq_name = 'seq'+str(seq)
+            # Loop over every frame in the current sequence
+            for i, frame in enumerate(sequence['seq'+str(seq)]):
+                # Get the ground truth labels for the current frame
+                gt_labels = labels_dict['seq'+str(seq)]['frame'+str(i)]
 
-            # Create the initial embeddings.
-            init_frame = sequence[seq_name][0].copy()
-            init_labels = label_dict[seq_name]['frame0']
+                obj_ids, obj_bbs = [], []
+                for label in gt_labels.values():
+                    obj_ids.append(label['track_id'])
+                    obj_bbs.append([label['left'], label['top'],
+                                    label['right'], label['bottom']])
 
-            new_embeddings, embeds_dict = [], {}
-            for object_dict in init_labels.values():
-                # Get the bounding box of every object.
-                object_bb = slice_image(im=init_frame, dict_obj=object_dict)
-                object_bb = resize_bb(object_bb, image_size)
-                embedding = model(object_bb)
-
-                new_embeddings.append(embedding)
-
-            # Perform the re-identification
-            hypothesis_ids = embeds_database.match_embeddings(new_embeddings, max_distance=0.2)
-
-            # Loop over every frame in the sequence (starting at second frame).
-            for i, frame in enumerate(sequence[seq_name][1:]):
-                curr_label = label_dict[seq_name]['frame'+str(i+1)]
-
-                new_embeddings, object_ids = [], []
-                object_bbs = np.empty((0, 4), dtype=int)
-                for object_dict in curr_label.values():
-                    # Get the bounding box of every object.
-                    object_bb = slice_image(im=frame, dict_obj=object_dict)
-                    object_bb = resize_bb(object_bb, image_size)
-                    embedding = model(object_bb)
-
-                    new_embeddings.append(embedding)
-                    object_ids.append(object_dict['track_id'])
-
-                    # Append the bounding box data.
-                    left = object_dict['left']
-                    top = object_dict['top']
-                    right = object_dict['right']
-                    bottom = object_dict['bottom']
-
-                    object_bbs = np.append(object_bbs, np.array(
-                        [[left, top, right, bottom]]), axis=0)
+                # Get the embeddings and bouding boxes by running the model
+                embeddings, boxes, labels, probs = model(frame)
+                hyp_bbs = np.array(boxes, dtype=int)
 
                 # Perform the re-identification
-                hypothesis_ids = embeds_database.match_embeddings(new_embeddings, max_distance=0.2)
+                hyp_ids = embeds_database.match_embeddings(embeddings)
 
                 # Update the MOT metric.
-                hypothese_bbs = object_bbs.copy()  # NOTE: THIS IS TEMPORARY!
-                mot_validation.update(object_ids, hypothesis_ids,
-                                      object_bbs.copy(), hypothese_bbs.copy())
+                mot_metric.update(obj_ids, hyp_ids,
+                                  np.array(obj_bbs.copy()), np.array(hyp_bbs.copy()))
 
-                if visual:
+                if visual == 're-id':
+
                     # Visualize the frame with bouding boxes and ids.
-                    show_frame_with_bb(frame, object_bbs.copy(), hypothesis_ids,
-                                       seq_name, frame_index=i)
+                    show_frame_with_ids(frame, hyp_bbs.copy(), hyp_ids)
+                elif visual == 'detect':
+                    show_frame_with_labels(frame, boxes, labels, probs)
 
-        # Return the MOT validation object
-        return mot_validation
+        # Return the MOT metric object
+        return mot_metric, embeds_database.get_average_cost()
 
 
 def train_model(model, images_file, labels_file, epochs, learning_rate,
@@ -163,7 +138,8 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
 
     # Create empty list for the metrics.
     train_loss_results = []
-    mot_metric_results = []
+    mot_accuracy_results = []
+    mot_precision_results = []
 
     motp_results = []
     matches_results = []
@@ -197,16 +173,18 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
             train_loss.update_state(loss)
 
         # Run validation program on sequence and get score.
-        MOTA_score = run_validation(model, images_file, labels_file,
-                                    sequences_val, memory_length, memory_update)
+        tracker = MultiTrackNet(model)
+        MOT_metric, avg_cost = run_validation(tracker, images_file, labels_file,
+                                              sequences_val, memory_length, memory_update)
 
         if epoch % 1 == 0:
-            print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.1%}".format(
-                epoch, train_loss.result(), MOTA_score.get_MOTA()))
+            print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.1%}, Precision: {:.1%}".format(
+                epoch, train_loss.result(), MOT_metric.get_MOTA(), MOT_metric.get_MOTP()))
 
         # Append the results.
         train_loss_results.append(train_loss.result())
-        mot_metric_results.append(MOTA_score.get_MOTA())
+        mot_accuracy_results.append(MOT_metric.get_MOTA())
+        mot_precision_results.append(MOT_metric.get_MOTP())
 
         motp_results.append(MOTA_score.get_MOTP())
         matches_results.append(MOTA_score.get_num_matches())
@@ -216,15 +194,18 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
         recall_results.append(MOTA_score.get_recall())
 
     # Visualize the results of training.
-    fig, axes = plt.subplots(2, sharex=True, figsize=(7, 5))
+    fig, axes = plt.subplots(3, sharex=True, figsize=(7, 7))
     fig.suptitle("Training Metrics", fontsize=14)
 
     axes[0].set_ylabel("Loss", fontsize=12)
     axes[0].plot(train_loss_results)
 
     axes[1].set_ylabel("Accuracy", fontsize=12)
-    axes[1].set_xlabel("Epoch", fontsize=12)
-    axes[1].plot(mot_metric_results)
+    axes[1].plot(mot_accuracy_results)
+
+    axes[2].set_ylabel("Precision", fontsize=12)
+    axes[2].set_xlabel("Epoch", fontsize=12)
+    axes[2].plot(mot_precision_results)
     plt.show()
 
     # Save training metrics.
@@ -255,7 +236,7 @@ if __name__ == "__main__":
     memory_update = 0.75
 
     window_size = 35
-    num_combi_per_obj_per_epoch = 10
+    num_combi_per_obj_per_epoch = 1
 
     # Choose train/val/test.
     sequences_train = [0, 1, 2]
@@ -274,14 +255,23 @@ if __name__ == "__main__":
                         sequences_train, sequences_val)
 
     # Save the weights of the model
-    model_path = "model/model.ckpt"
+    model_path = "saved_model/saved_model.ckpt"
     model.save_weights(model_path)
 
     # Load the previously saved weights
     new_model = TrackNet(padding='valid', use_bias=False)
     new_model.load_weights(model_path)
 
+    # Extend the re-identification model with detection
+    tracker = MultiTrackNet(new_model)
+
     # Run the validation with visualization
-    MOT_object = run_validation(new_model, images_file, labels_file,
-                                sequences_test, memory_length, memory_update, visual=True)
-    print(MOT_object.get_MOTA())
+    MOT_metric = run_validation(tracker, images_file, labels_file,
+                                sequences_test, memory_length, memory_update, visual='re-id')
+
+    # Print some of the statistics
+    print('\nTest results:')
+    print('Multi-object tracking accuracy: {:.1%}'.format(MOT_metric.get_MOTA()))
+    print('Multi-object tracking precision: {:.1%}'.format(MOT_metric.get_MOTP()))
+    print('Multi-object detection precision: {:.1%}'.format(MOT_metric.get_precision()))
+    print('Multi-object detection recall: {:.1%}\n'.format(MOT_metric.get_recall()))

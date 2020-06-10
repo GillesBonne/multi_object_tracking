@@ -24,6 +24,9 @@ class EmbeddingsDatabase():
         else:
             raise Exception('Unknown metric function!')
 
+        self.total_cost = 0
+        self.num_samples = 0
+
     def update_database(self):
         """Update database by removing expired elements."""
         self.database = [(e[0], e[1]+1, e[2]) for e in self.database if e[1] < self.memory_length]
@@ -66,6 +69,9 @@ class EmbeddingsDatabase():
         for row_index, new_embedding in enumerate(new_embeddings):
             if row_index in row_indices:
                 col_index = col_indices[row_indices.tolist().index(row_index)]
+
+                self.update_average_cost(cost_matrix[row_index, col_index])
+
                 if cost_matrix[row_index, col_index] <= max_distance:
                     # Embedding is assigned and distance is not too large
                     ids_list.append(self.update_embedding(new_embedding, col_index))
@@ -77,3 +83,22 @@ class EmbeddingsDatabase():
                 ids_list.append(self.add_embedding(new_embedding))
 
         return ids_list
+
+    def update_average_cost(self, cost_value):
+        """Update the total cost and number of samples."""
+        self.total_cost += cost_value
+        self.num_samples += 1
+
+    def get_average_cost(self):
+        """Return the average cost since last call."""
+        avg_cost = self.total_cost / self.num_samples
+
+        self.total_cost = 0  # Reset the total cost
+        self.num_samples = 0  # Reset the number of samples
+
+        return avg_cost
+
+
+
+
+
