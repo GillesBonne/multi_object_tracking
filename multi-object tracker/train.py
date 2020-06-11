@@ -111,7 +111,6 @@ def run_validation(model, images_file, labels_file, sequences_val, memory_length
                                   np.array(obj_bbs.copy()), np.array(hyp_bbs.copy()))
 
                 if visual == 're-id':
-
                     # Visualize the frame with bouding boxes and ids.
                     show_frame_with_ids(frame, hyp_bbs.copy(), hyp_ids,
                                         frame_num=i, seq_name='seq{}'.format(str(seq)))
@@ -160,6 +159,7 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
             with tf.GradientTape() as tape:
                 embeddings = model(images, training=True)
                 loss = loss_object(labels, embeddings)
+                loss += sum(model.losses)  # Add the L2 regularization loss
 
             gradients = tape.gradient(loss, model.trainable_variables)
             optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -214,20 +214,21 @@ if __name__ == "__main__":
     physical_devices = tf.config.list_physical_devices('GPU')
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-    # Select the model and data.
-    model = TrackNet(padding='valid', use_bias=False)
-    images_file = '../data/kitti_images.h5'
-    labels_file = '../data/kitti_labels.bin'
-
     # Settings for the train process
-    epochs = 4
+    epochs = 2
     learning_rate = 0.01
+    l2_regularization = 0.001
 
     memory_length = 30
     memory_update = 0.75
 
     window_size = 10
     num_combi_per_obj_per_epoch = 1
+
+    # Select the model and data.
+    model = TrackNet(padding='valid', use_bias=False, l2=l2_regularization)
+    images_file = '../data/kitti_images.h5'
+    labels_file = '../data/kitti_labels.bin'
 
     # Choose train/val/test.
     sequences_train = [0]
@@ -250,7 +251,7 @@ if __name__ == "__main__":
     model.save_weights(model_path)
 
     # Load the previously saved weights
-    new_model = TrackNet(padding='valid', use_bias=False)
+    new_model = TrackNet(padding='valid', use_bias=False, l2=l2_regularization)
     new_model.load_weights(model_path)
 
     # Extend the re-identification model with detection
