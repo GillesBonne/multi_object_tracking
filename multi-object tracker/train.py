@@ -2,14 +2,16 @@
 
 from __future__ import absolute_import, division, print_function
 
-import pickle
-
 import h5py
+import pickle
+import datetime
+
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 import tensorflow_addons as tfa
 
+from pathlib import Path
 from data import get_combinations
 from embeds import EmbeddingsDatabase
 from eval import MOTMetric
@@ -67,7 +69,7 @@ def get_batch(images_file, labels_file, combination, image_size=128):
 
 
 def run_validation(model, images_file, labels_file, sequences_val, memory_length,
-                   memory_update, image_size=128, visual=None):
+                   memory_update, max_distance, image_size=128, visual=None):
     """Run validation sequence on model.
 
   Args:
@@ -104,14 +106,13 @@ def run_validation(model, images_file, labels_file, sequences_val, memory_length
                 hyp_bbs = np.array(boxes, dtype=int)
 
                 # Perform the re-identification
-                hyp_ids = embeds_database.match_embeddings(embeddings)
+                hyp_ids = embeds_database.match_embeddings(embeddings, max_distance)
 
                 # Update the MOT metric.
                 mot_metric.update(obj_ids, hyp_ids,
                                   np.array(obj_bbs.copy()), np.array(hyp_bbs.copy()))
 
                 if visual == 're-id':
-
                     # Visualize the frame with bouding boxes and ids.
                     show_frame_with_ids(frame, hyp_bbs.copy(), hyp_ids,
                                         frame_num=i, seq_name='seq{}'.format(str(seq)))
@@ -124,8 +125,9 @@ def run_validation(model, images_file, labels_file, sequences_val, memory_length
 
 def train_model(model, images_file, labels_file, epochs, learning_rate,
                 window_size, num_combi_per_obj_per_epoch,
-                memory_length, memory_update,
-                sequences_train, sequences_val):
+                memory_length, memory_update, max_distance,
+                sequences_train, sequences_val, val_epochs, 
+                save_directory):
     """Create training loop for the object tracker model.
 
   Args:
@@ -139,6 +141,7 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
 
     # Create empty list for the metrics.
     train_loss_results = []
+    mot_metric_epochs = []
     mot_accuracy_results = []
     mot_precision_results = []
     mot_switches_results = []
@@ -160,6 +163,7 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
             with tf.GradientTape() as tape:
                 embeddings = model(images, training=True)
                 loss = loss_object(labels, embeddings)
+                loss += sum(model.losses)  # Add the L2 regularization loss
 
             gradients = tape.gradient(loss, model.trainable_variables)
             optimizer.apply_gradients(zip(gradients, model.trainable_variables))
@@ -167,20 +171,29 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
             # Track progress.
             train_loss.update_state(loss)
 
-        # Run validation program on sequence and get score.
-        tracker = MultiTrackNet(model)
-        MOT_metric, avg_cost = run_validation(tracker, images_file, labels_file,
-                                              sequences_val, memory_length, memory_update)
+        if epoch % val_epochs == 0:
+            # Run validation program on sequence and get score.
+            tracker = MultiTrackNet(model)
+            MOT_metric, avg_cost = run_validation(tracker, images_file, labels_file,
+                            sequences_val, memory_length, memory_update, max_distance)
 
-        if epoch % 1 == 0:
+            # Print statistics with accuracy and precision
             print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.1%}, Precision: {:.1%}".format(
                 epoch, train_loss.result(), MOT_metric.get_MOTA(), MOT_metric.get_MOTP()))
 
-        # Append the results.
-        train_loss_results.append(train_loss.result())
-        mot_accuracy_results.append(MOT_metric.get_MOTA())
-        mot_precision_results.append(MOT_metric.get_MOTP())
-        mot_switches_results.append(MOT_metric.get_num_switches())
+            # Append the results
+            train_loss_results.append(train_loss.result())
+            mot_metric_epochs.append(epoch)
+            mot_accuracy_results.append(MOT_metric.get_MOTA())
+            mot_precision_results.append(MOT_metric.get_MOTP())
+            mot_switches_results.append(MOT_metric.get_num_switches())
+        else:
+            # Print statistics without accuracy and precision
+            print("Epoch {:03d}: Loss: {:.3f}".format(epoch, train_loss.result()))
+
+            # Append the results.
+            train_loss_results.append(train_loss.result())
+        
 
     # Visualize the results of training.
     fig, axes = plt.subplots(4, sharex=True, figsize=(7, 7))
@@ -190,22 +203,22 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
     axes[0].plot(train_loss_results)
 
     axes[1].set_ylabel("Accuracy", fontsize=12)
-    axes[1].plot(mot_accuracy_results)
+    axes[1].plot(mot_metric_epochs, mot_accuracy_results)
 
     axes[2].set_ylabel("Precision", fontsize=12)
-    axes[2].set_xlabel("Epoch", fontsize=12)
-    axes[2].plot(mot_precision_results)
+    axes[2].plot(mot_metric_epochs, mot_precision_results)
 
     axes[3].set_ylabel("Number of switches", fontsize=12)
     axes[3].set_xlabel("Epoch", fontsize=12)
-    axes[3].plot(mot_switches_results)
+    axes[3].plot(mot_metric_epochs, mot_switches_results)
     plt.show()
 
     # Save training metrics.
-    np.savetxt('metrics/train_loss.txt', train_loss_results)
-    np.savetxt('metrics/mot_accuracy.txt', mot_accuracy_results)
-    np.savetxt('metrics/mot_precision.txt', mot_precision_results)
-    np.savetxt('metrics/mot_switches.txt', mot_switches_results)
+    np.savetxt(save_directory + '/train_loss.txt', train_loss_results)
+    np.savetxt(save_directory + '/mot_epochs.txt', mot_metric_epochs)
+    np.savetxt(save_directory + '/mot_accuracy.txt', mot_accuracy_results)
+    np.savetxt(save_directory + '/mot_precision.txt', mot_precision_results)
+    np.savetxt(save_directory + '/mot_switches.txt', mot_switches_results)
 
     return model
 
@@ -214,20 +227,28 @@ if __name__ == "__main__":
     physical_devices = tf.config.list_physical_devices('GPU')
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-    # Select the model and data.
-    model = TrackNet(padding='valid', use_bias=False)
-    images_file = '../data/kitti_images.h5'
-    labels_file = '../data/kitti_labels.bin'
-
     # Settings for the train process
-    epochs = 4
+    epochs = 2
     learning_rate = 0.01
+    l2_reg = 0.001  # L2 regularization
+    l2_norm = True  # L2 normalization
 
     memory_length = 30
     memory_update = 0.75
+    max_distance = 0.1
 
     window_size = 10
     num_combi_per_obj_per_epoch = 1
+
+    # Create unque folder for every training session
+    now = datetime.datetime.now()
+    save_directory = 'saved_model_' + now.strftime('%Y-%m-%d_%H-%M-%S')
+    Path(save_directory).mkdir(parents=True, exist_ok=True)
+
+    # Select the model and data.
+    model = TrackNet(padding='valid', use_bias=False, l2_reg=l2_reg, l2_norm=l2_norm)
+    images_file = '../data/kitti_images.h5'
+    labels_file = '../data/kitti_labels.bin'
 
     # Choose train/val/test.
     sequences_train = [0]
@@ -239,18 +260,20 @@ if __name__ == "__main__":
         labels_file, sequences_train, window_size, num_combi_per_obj_per_epoch)))
 
     # Train the model
+    val_epochs = 5  # Run validation every n epochs
     model = train_model(model, images_file, labels_file,
                         epochs, learning_rate,
                         window_size, num_combi_per_obj_per_epoch,
-                        memory_length, memory_update,
-                        sequences_train, sequences_val)
+                        memory_length, memory_update, max_distance,
+                        sequences_train, sequences_val, val_epochs,
+                        save_directory)
 
     # Save the weights of the model
-    model_path = "saved_model/saved_model.ckpt"
+    model_path = save_directory + '/saved_model.ckpt'
     model.save_weights(model_path)
 
     # Load the previously saved weights
-    new_model = TrackNet(padding='valid', use_bias=False)
+    new_model = TrackNet(padding='valid', use_bias=False, l2_reg=l2_reg, l2_norm=l2_norm)
     new_model.load_weights(model_path)
 
     # Extend the re-identification model with detection
@@ -258,7 +281,7 @@ if __name__ == "__main__":
 
     # Run the validation with visualization
     MOT_metric, _ = run_validation(tracker, images_file, labels_file,
-                                   sequences_test, memory_length, memory_update, visual='re-id')
+            sequences_test, memory_length, memory_update, max_distance=0.1, visual='re-id')
 
     # Print some of the statistics
     print('\nTest results:')
