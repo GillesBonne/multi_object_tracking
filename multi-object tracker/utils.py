@@ -2,13 +2,12 @@
 
 from __future__ import absolute_import, division, print_function
 
-from pathlib import Path
-
 import cv2
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 
+from pathlib import Path
 from yolo.utils.box import visualize_boxes
 
 
