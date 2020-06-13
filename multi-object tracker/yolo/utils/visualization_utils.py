@@ -20,51 +20,51 @@ The functions do not return a value, instead they modify the image itself.
 
 """
 import collections
+
 import numpy as np
 import PIL.Image as Image
 import PIL.ImageColor as ImageColor
 import PIL.ImageDraw as ImageDraw
 import PIL.ImageFont as ImageFont
 
-
 _TITLE_LEFT_MARGIN = 10
 _TITLE_TOP_MARGIN = 10
 STANDARD_COLORS = [
-        'AliceBlue', 'Chartreuse', 'Aqua', 'Aquamarine', 'Azure', 'Beige', 'Bisque',
-        'BlanchedAlmond', 'BlueViolet', 'BurlyWood', 'CadetBlue', 'AntiqueWhite',
-        'Chocolate', 'Coral', 'CornflowerBlue', 'Cornsilk', 'Crimson', 'Cyan',
-        'DarkCyan', 'DarkGoldenRod', 'DarkGrey', 'DarkKhaki', 'DarkOrange',
-        'DarkOrchid', 'DarkSalmon', 'DarkSeaGreen', 'DarkTurquoise', 'DarkViolet',
-        'DeepPink', 'DeepSkyBlue', 'DodgerBlue', 'FireBrick', 'FloralWhite',
-        'ForestGreen', 'Fuchsia', 'Gainsboro', 'GhostWhite', 'Gold', 'GoldenRod',
-        'Salmon', 'Tan', 'HoneyDew', 'HotPink', 'IndianRed', 'Ivory', 'Khaki',
-        'Lavender', 'LavenderBlush', 'LawnGreen', 'LemonChiffon', 'LightBlue',
-        'LightCoral', 'LightCyan', 'LightGoldenRodYellow', 'LightGray', 'LightGrey',
-        'LightGreen', 'LightPink', 'LightSalmon', 'LightSeaGreen', 'LightSkyBlue',
-        'LightSlateGray', 'LightSlateGrey', 'LightSteelBlue', 'LightYellow', 'Lime',
-        'LimeGreen', 'Linen', 'Magenta', 'MediumAquaMarine', 'MediumOrchid',
-        'MediumPurple', 'MediumSeaGreen', 'MediumSlateBlue', 'MediumSpringGreen',
-        'MediumTurquoise', 'MediumVioletRed', 'MintCream', 'MistyRose', 'Moccasin',
-        'NavajoWhite', 'OldLace', 'Olive', 'OliveDrab', 'Orange', 'OrangeRed',
-        'Orchid', 'PaleGoldenRod', 'PaleGreen', 'PaleTurquoise', 'PaleVioletRed',
-        'PapayaWhip', 'PeachPuff', 'Peru', 'Pink', 'Plum', 'PowderBlue', 'Purple',
-        'Red', 'RosyBrown', 'RoyalBlue', 'SaddleBrown', 'Green', 'SandyBrown',
-        'SeaGreen', 'SeaShell', 'Sienna', 'Silver', 'SkyBlue', 'SlateBlue',
-        'SlateGray', 'SlateGrey', 'Snow', 'SpringGreen', 'SteelBlue', 'GreenYellow',
-        'Teal', 'Thistle', 'Tomato', 'Turquoise', 'Violet', 'Wheat', 'White',
-        'WhiteSmoke', 'Yellow', 'YellowGreen'
+    'AliceBlue', 'Chartreuse', 'Aqua', 'Aquamarine', 'Azure', 'Beige', 'Bisque',
+    'BlanchedAlmond', 'BlueViolet', 'BurlyWood', 'CadetBlue', 'AntiqueWhite',
+    'Chocolate', 'Coral', 'CornflowerBlue', 'Cornsilk', 'Crimson', 'Cyan',
+    'DarkCyan', 'DarkGoldenRod', 'DarkGrey', 'DarkKhaki', 'DarkOrange',
+    'DarkOrchid', 'DarkSalmon', 'DarkSeaGreen', 'DarkTurquoise', 'DarkViolet',
+    'DeepPink', 'DeepSkyBlue', 'DodgerBlue', 'FireBrick', 'FloralWhite',
+    'ForestGreen', 'Fuchsia', 'Gainsboro', 'GhostWhite', 'Gold', 'GoldenRod',
+    'Salmon', 'Tan', 'HoneyDew', 'HotPink', 'IndianRed', 'Ivory', 'Khaki',
+    'Lavender', 'LavenderBlush', 'LawnGreen', 'LemonChiffon', 'LightBlue',
+    'LightCoral', 'LightCyan', 'LightGoldenRodYellow', 'LightGray', 'LightGrey',
+    'LightGreen', 'LightPink', 'LightSalmon', 'LightSeaGreen', 'LightSkyBlue',
+    'LightSlateGray', 'LightSlateGrey', 'LightSteelBlue', 'LightYellow', 'Lime',
+    'LimeGreen', 'Linen', 'Magenta', 'MediumAquaMarine', 'MediumOrchid',
+    'MediumPurple', 'MediumSeaGreen', 'MediumSlateBlue', 'MediumSpringGreen',
+    'MediumTurquoise', 'MediumVioletRed', 'MintCream', 'MistyRose', 'Moccasin',
+    'NavajoWhite', 'OldLace', 'Olive', 'OliveDrab', 'Orange', 'OrangeRed',
+    'Orchid', 'PaleGoldenRod', 'PaleGreen', 'PaleTurquoise', 'PaleVioletRed',
+    'PapayaWhip', 'PeachPuff', 'Peru', 'Pink', 'Plum', 'PowderBlue', 'Purple',
+    'Red', 'RosyBrown', 'RoyalBlue', 'SaddleBrown', 'Green', 'SandyBrown',
+    'SeaGreen', 'SeaShell', 'Sienna', 'Silver', 'SkyBlue', 'SlateBlue',
+    'SlateGray', 'SlateGrey', 'Snow', 'SpringGreen', 'SteelBlue', 'GreenYellow',
+    'Teal', 'Thistle', 'Tomato', 'Turquoise', 'Violet', 'Wheat', 'White',
+    'WhiteSmoke', 'Yellow', 'YellowGreen'
 ]
 
 
 def draw_bounding_box_on_image_array(image,
-                                                                         ymin,
-                                                                         xmin,
-                                                                         ymax,
-                                                                         xmax,
-                                                                         color='red',
-                                                                         thickness=4,
-                                                                         display_str_list=(),
-                                                                         use_normalized_coordinates=True):
+                                     ymin,
+                                     xmin,
+                                     ymax,
+                                     xmax,
+                                     color='red',
+                                     thickness=4,
+                                     display_str_list=(),
+                                     use_normalized_coordinates=True):
     """Adds a bounding box to an image (numpy array).
 
     Bounding box coordinates can be specified in either absolute (pixel) or
@@ -86,20 +86,20 @@ def draw_bounding_box_on_image_array(image,
     """
     image_pil = Image.fromarray(np.uint8(image)).convert('RGB')
     draw_bounding_box_on_image(image_pil, ymin, xmin, ymax, xmax, color,
-                                                         thickness, display_str_list,
-                                                         use_normalized_coordinates)
+                               thickness, display_str_list,
+                               use_normalized_coordinates)
     np.copyto(image, np.array(image_pil))
 
 
 def draw_bounding_box_on_image(image,
-                                                             ymin,
-                                                             xmin,
-                                                             ymax,
-                                                             xmax,
-                                                             color='red',
-                                                             thickness=4,
-                                                             display_str_list=(),
-                                                             use_normalized_coordinates=True):
+                               ymin,
+                               xmin,
+                               ymax,
+                               xmax,
+                               color='red',
+                               thickness=4,
+                               display_str_list=(),
+                               use_normalized_coordinates=True):
     """Adds a bounding box to an image.
 
     Bounding box coordinates can be specified in either absolute (pixel) or
@@ -128,11 +128,11 @@ def draw_bounding_box_on_image(image,
     im_width, im_height = image.size
     if use_normalized_coordinates:
         (left, right, top, bottom) = (xmin * im_width, xmax * im_width,
-                                                                    ymin * im_height, ymax * im_height)
+                                      ymin * im_height, ymax * im_height)
     else:
         (left, right, top, bottom) = (xmin, xmax, ymin, ymax)
     draw.line([(left, top), (left, bottom), (right, bottom),
-                         (right, top), (left, top)], width=thickness, fill=color)
+               (right, top), (left, top)], width=thickness, fill=color)
     try:
         font = ImageFont.truetype('arial.ttf', 24)
     except IOError:
@@ -154,14 +154,14 @@ def draw_bounding_box_on_image(image,
         text_width, text_height = font.getsize(display_str)
         margin = np.ceil(0.05 * text_height)
         draw.rectangle(
-                [(left, text_bottom - text_height - 2 * margin), (left + text_width,
-                                                                                                                    text_bottom)],
-                fill=color)
+            [(left, text_bottom - text_height - 2 * margin), (left + text_width,
+                                                              text_bottom)],
+            fill=color)
         draw.text(
-                (left + margin, text_bottom - text_height - margin),
-                display_str,
-                fill='black',
-                font=font)
+            (left + margin, text_bottom - text_height - margin),
+            display_str,
+            fill='black',
+            font=font)
         text_bottom -= text_height - 2 * margin
 
 
@@ -186,12 +186,12 @@ def draw_mask_on_image_array(image, mask, color='red', alpha=0.4):
         raise ValueError('`mask` elements should be in [0, 1]')
     if image.shape[:2] != mask.shape:
         raise ValueError('The image has spatial dimensions %s but the mask has '
-                                         'dimensions %s' % (image.shape[:2], mask.shape))
+                         'dimensions %s' % (image.shape[:2], mask.shape))
     rgb = ImageColor.getrgb(color)
     pil_image = Image.fromarray(image)
 
     solid_color = np.expand_dims(
-            np.ones_like(mask), axis=2) * np.reshape(list(rgb), [1, 1, 3])
+        np.ones_like(mask), axis=2) * np.reshape(list(rgb), [1, 1, 3])
     pil_solid_color = Image.fromarray(np.uint8(solid_color)).convert('RGBA')
     pil_mask = Image.fromarray(np.uint8(255.0*alpha*mask)).convert('L')
     pil_image = Image.composite(pil_solid_color, pil_image, pil_mask)
@@ -288,36 +288,32 @@ def visualize_boxes_and_labels_on_image_array(
                     box_to_color_map[box] = 'DarkOrange'
                 else:
                     box_to_color_map[box] = STANDARD_COLORS[
-                            classes[i] % len(STANDARD_COLORS)]
+                        classes[i] % len(STANDARD_COLORS)]
 
     # Draw all boxes onto image.
     for box, color in box_to_color_map.items():
         ymin, xmin, ymax, xmax = box
         if instance_masks is not None:
             draw_mask_on_image_array(
-                    image,
-                    box_to_instance_masks_map[box],
-                    color=color
+                image,
+                box_to_instance_masks_map[box],
+                color=color
             )
         if instance_boundaries is not None:
             draw_mask_on_image_array(
-                    image,
-                    box_to_instance_boundaries_map[box],
-                    color='red',
-                    alpha=1.0
+                image,
+                box_to_instance_boundaries_map[box],
+                color='red',
+                alpha=1.0
             )
         draw_bounding_box_on_image_array(
-                image,
-                ymin,
-                xmin,
-                ymax,
-                xmax,
-                color=color,
-                thickness=line_thickness,
-                display_str_list=box_to_display_str_map[box],
-                use_normalized_coordinates=use_normalized_coordinates)
+            image,
+            ymin,
+            xmin,
+            ymax,
+            xmax,
+            color=color,
+            thickness=line_thickness,
+            display_str_list=box_to_display_str_map[box],
+            use_normalized_coordinates=use_normalized_coordinates)
     return image
-
-
-
-

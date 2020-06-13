@@ -10,7 +10,7 @@ models = tf.keras.models
 class Bodynet(tf.keras.Model):
     def __init__(self):
         super(Bodynet, self).__init__(name='')
-        
+
         # (256, 256, 3)
         self.l0a = _ConvBlock(32, layer_idx=0, name="stage0")
         self.l0_pool = _ConvPoolBlock(64, layer_idx=1, name="stage0")
@@ -34,7 +34,7 @@ class Bodynet(tf.keras.Model):
         self.l3g = _ResidualBlock([128, 256], layer_idx=[22, 23], name="stage3")
         self.l3h = _ResidualBlock([128, 256], layer_idx=[24, 25], name="stage3")
         self.l3_pool = _ConvPoolBlock(512, layer_idx=26, name="stage3")
-        
+
         # (16, 16, 512)
         self.l4a = _ResidualBlock([256, 512], layer_idx=[27, 28], name="stage4")
         self.l4b = _ResidualBlock([256, 512], layer_idx=[29, 30], name="stage4")
@@ -51,12 +51,12 @@ class Bodynet(tf.keras.Model):
         self.l5b = _ResidualBlock([512, 1024], layer_idx=[46, 47], name="stage5")
         self.l5c = _ResidualBlock([512, 1024], layer_idx=[48, 49], name="stage5")
         self.l5d = _ResidualBlock([512, 1024], layer_idx=[50, 51], name="stage5")
-        
+
         self.num_layers = 52
         self._init_vars()
 
     def call(self, input_tensor, training=False):
-        
+
         x = self.l0a(input_tensor, training)
         x = self.l0_pool(x, training)
 
@@ -95,7 +95,7 @@ class Bodynet(tf.keras.Model):
         x = self.l5d(x, training)
         output_stage5 = x
         return output_stage3, output_stage4, output_stage5
-    
+
     def get_variables(self, layer_idx, suffix=None):
         if suffix:
             find_name = "layer_{}/{}".format(layer_idx, suffix)
@@ -117,10 +117,11 @@ class Bodynet(tf.keras.Model):
 class _ConvBlock(tf.keras.Model):
     def __init__(self, filters, layer_idx, name=""):
         super(_ConvBlock, self).__init__(name=name)
-        
+
         layer_name = "layer_{}".format(str(layer_idx))
 
-        self.conv = layers.Conv2D(filters, (3, 3), strides=(1, 1), padding='same', use_bias=False, name=layer_name)
+        self.conv = layers.Conv2D(filters, (3, 3), strides=(
+            1, 1), padding='same', use_bias=False, name=layer_name)
         self.bn = layers.BatchNormalization(epsilon=0.001, name=layer_name)
 
     def call(self, input_tensor, training=False):
@@ -137,8 +138,9 @@ class _ConvPoolBlock(tf.keras.Model):
 
         layer_name = "layer_{}".format(str(layer_idx))
 
-        self.pad = layers.ZeroPadding2D(((1,0),(1,0)))
-        self.conv = layers.Conv2D(filters, (3, 3), strides=(2, 2), padding='valid', use_bias=False, name=layer_name)
+        self.pad = layers.ZeroPadding2D(((1, 0), (1, 0)))
+        self.conv = layers.Conv2D(filters, (3, 3), strides=(
+            2, 2), padding='valid', use_bias=False, name=layer_name)
         self.bn = layers.BatchNormalization(epsilon=0.001, name=layer_name)
 
     def call(self, input_tensor, training=False):
@@ -159,17 +161,19 @@ class _ResidualBlock(tf.keras.Model):
         layer_name1 = "layer_{}".format(str(layer1))
         layer_name2 = "layer_{}".format(str(layer2))
 
-        self.conv2a = layers.Conv2D(filters1, (1, 1), padding='same', use_bias=False, name=layer_name1)
+        self.conv2a = layers.Conv2D(filters1, (1, 1), padding='same',
+                                    use_bias=False, name=layer_name1)
         self.bn2a = layers.BatchNormalization(epsilon=0.001, name=layer_name1)
 
-        self.conv2b = layers.Conv2D(filters2, (3, 3), padding='same', use_bias=False, name=layer_name2)
+        self.conv2b = layers.Conv2D(filters2, (3, 3), padding='same',
+                                    use_bias=False, name=layer_name2)
         self.bn2b = layers.BatchNormalization(epsilon=0.001, name=layer_name2)
 
     def call(self, input_tensor, training=False):
         x = self.conv2a(input_tensor)
         x = self.bn2a(x, training=training)
         x = tf.nn.leaky_relu(x, alpha=0.1)
-        
+
         x = self.conv2b(x)
         x = self.bn2b(x, training=training)
         x = tf.nn.leaky_relu(x, alpha=0.1)
@@ -182,9 +186,8 @@ if __name__ == '__main__':
     import numpy as np
     imgs = np.random.randn(1, 256, 256, 3).astype(np.float32)
     input_tensor = tf.constant(imgs)
-    
+
     # (1, 256, 256, 3) => (1, 8, 8, 1024)
     bodynet = Bodynet()
     s3, s4, s5 = bodynet(input_tensor)
     print(s3.shape, s4.shape, s5.shape)
-

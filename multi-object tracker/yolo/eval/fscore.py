@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from yolo.eval._box_match import BoxMatcher
 
+
 def count_true_positives(detect_boxes, true_boxes, detect_labels=None, true_labels=None):
     """
     # Args
@@ -10,7 +11,7 @@ def count_true_positives(detect_boxes, true_boxes, detect_labels=None, true_labe
         true_labels :
     """
     n_true_positives = 0
- 
+
     matcher = BoxMatcher(detect_boxes, true_boxes, detect_labels, true_labels)
     for i in range(len(detect_boxes)):
         matching_idx, iou = matcher.match_idx_of_box1_idx(i)
@@ -31,10 +32,10 @@ def calc_score(n_true_positives, n_truth, n_pred):
     if precision + recall == 0:
         fscore = 0
     else:
-        fscore = 2* precision * recall / (precision + recall)
+        fscore = 2 * precision * recall / (precision + recall)
     score = {"fscore": fscore, "precision": precision, "recall": recall}
     return score
-    
+
 
 if __name__ == '__main__':
     pass

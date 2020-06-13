@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-from yolo.utils.box import BoundBox, nms_boxes, correct_yolo_boxes
+
+from yolo.utils.box import BoundBox, correct_yolo_boxes, nms_boxes
 
 IDX_X = 0
 IDX_Y = 1
@@ -16,7 +17,7 @@ def postprocess_ouput(yolos, anchors, net_size, image_h, image_w, obj_thresh=0.5
     # Args
         yolos : list of arrays
             Yolonet outputs
-    
+
     """
     anchors = np.array(anchors).reshape(3, 6)
     boxes = []
@@ -38,7 +39,7 @@ def decode_netout(netout, anchors, obj_thresh, net_size, nb_box=3):
     # Args
         netout : (n_rows, n_cols, 3, 4+1+n_classes)
         anchors
-        
+
     """
     n_rows, n_cols = netout.shape[:2]
     netout = netout.reshape((n_rows, n_cols, nb_box, -1))
@@ -53,12 +54,12 @@ def decode_netout(netout, anchors, obj_thresh, net_size, nb_box=3):
                                                       netout[row, col, b, IDX_CLASS_PROB:],
                                                       obj_thresh)
 
-                # 2. scale normalize                
+                # 2. scale normalize
                 x /= n_cols
                 y /= n_rows
                 w /= net_size
                 h /= net_size
-                
+
                 if objectness > obj_thresh:
                     box = BoundBox(x, y, w, h, objectness, classes)
                     boxes.append(box)
@@ -82,7 +83,7 @@ def _activate_probs(objectness, classes, obj_thresh=0.3):
     # Args
         objectness : scalar
         classes : (n_classes, )
-    
+
     # Returns
         objectness_prob : (n_rows, n_cols, n_box)
         classes_conditional_probs : (n_rows, n_cols, n_box, n_classes)
@@ -95,8 +96,8 @@ def _activate_probs(objectness, classes, obj_thresh=0.3):
     # 3. thresholding
     classes_conditional_probs *= objectness_prob > obj_thresh
     return objectness_prob, classes_conditional_probs
-    
-    
+
+
 def _sigmoid(x):
     # *added  to solve overflow error*
     x = np.array(x, dtype=np.float128)
@@ -105,16 +106,16 @@ def _sigmoid(x):
 
 
 if __name__ == '__main__':
-    
-#     0 (13, 13, 255) [116, 90, 156, 198, 373, 326]
-#     1 (26, 26, 255) [30, 61, 62, 45, 59, 119]
-#     2 (52, 52, 255) [10, 13, 16, 30, 33, 23]
+
+    #     0 (13, 13, 255) [116, 90, 156, 198, 373, 326]
+    #     1 (26, 26, 255) [30, 61, 62, 45, 59, 119]
+    #     2 (52, 52, 255) [10, 13, 16, 30, 33, 23]
 
     np.random.seed(0)
     netout = np.random.randn(13, 13, 255)
     anchors = [116, 90, 156, 198, 373, 326]
     boxes = decode_netout(netout, anchors, obj_thresh=0.5, net_size=416)
-    
+
     import pickle
     with open('expected_boxes.pkl', 'rb') as f:
         expected_boxes = pickle.load(f)
@@ -128,5 +129,3 @@ if __name__ == '__main__':
         # assert box.classes == expected_box.classes
 
     print("passed")
-
-        

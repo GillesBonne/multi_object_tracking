@@ -1,3 +1,2 @@
 
 from .yolonet import Yolonet
-

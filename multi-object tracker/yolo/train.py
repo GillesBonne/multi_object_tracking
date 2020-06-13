@@ -1,23 +1,24 @@
 # -*- coding: utf-8 -*-
 
-import tensorflow as tf
 import os
+
+import tensorflow as tf
 from tqdm import tqdm
 
 from yolo.loss import loss_fn
 
 
 def train_fn(model, train_generator, valid_generator=None, learning_rate=1e-4, num_epoches=500, save_dname=None):
-    
+
     save_fname = _setup(save_dname)
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-    
+
     history = []
     for i in range(num_epoches):
 
         # 1. update params
         train_loss = _loop_train(model, optimizer, train_generator)
-        
+
         # 2. monitor validation loss
         if valid_generator:
             valid_loss = _loop_validation(model, valid_generator)
@@ -31,13 +32,13 @@ def train_fn(model, train_generator, valid_generator=None, learning_rate=1e-4, n
         if save_fname is not None and loss_value == min(history):
             print("    update weight {}".format(loss_value))
             model.save_weights("{}.h5".format(save_fname))
-    
+
     return history
 
 
 def _loop_train(model, optimizer, generator):
     # one epoch
-    
+
     n_steps = generator.steps_per_epoch
     loss_value = 0
     for _ in tqdm(range(n_steps)):

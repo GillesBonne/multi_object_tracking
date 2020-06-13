@@ -11,7 +11,7 @@ class Headnet(tf.keras.Model):
     def __init__(self, n_classes=80):
         super(Headnet, self).__init__(name='')
         n_features = 3 * (n_classes+1+4)
-        
+
         self.stage5_conv5 = _Conv5([512, 1024, 512, 1024, 512],
                                    [75, 76, 77, 78, 79])
         self.stage5_conv2 = _Conv2([1024, n_features],
@@ -71,24 +71,28 @@ class Headnet(tf.keras.Model):
 class _Conv5(tf.keras.Model):
     def __init__(self, filters, layer_idx, name=""):
         super(_Conv5, self).__init__(name=name)
-        
+
         layer_names = ["layer_{}".format(i) for i in layer_idx]
 
-        self.conv1 = layers.Conv2D(filters[0], (1, 1), strides=(1, 1), padding='same', use_bias=False, name=layer_names[0])
+        self.conv1 = layers.Conv2D(filters[0], (1, 1), strides=(
+            1, 1), padding='same', use_bias=False, name=layer_names[0])
         self.bn1 = layers.BatchNormalization(epsilon=0.001, name=layer_names[0])
 
-        self.conv2 = layers.Conv2D(filters[1], (3, 3), strides=(1, 1), padding='same', use_bias=False, name=layer_names[1])
+        self.conv2 = layers.Conv2D(filters[1], (3, 3), strides=(
+            1, 1), padding='same', use_bias=False, name=layer_names[1])
         self.bn2 = layers.BatchNormalization(epsilon=0.001, name=layer_names[1])
 
-        self.conv3 = layers.Conv2D(filters[2], (1, 1), strides=(1, 1), padding='same', use_bias=False, name=layer_names[2])
+        self.conv3 = layers.Conv2D(filters[2], (1, 1), strides=(
+            1, 1), padding='same', use_bias=False, name=layer_names[2])
         self.bn3 = layers.BatchNormalization(epsilon=0.001, name=layer_names[2])
 
-        self.conv4 = layers.Conv2D(filters[3], (3, 3), strides=(1, 1), padding='same', use_bias=False, name=layer_names[3])
+        self.conv4 = layers.Conv2D(filters[3], (3, 3), strides=(
+            1, 1), padding='same', use_bias=False, name=layer_names[3])
         self.bn4 = layers.BatchNormalization(epsilon=0.001, name=layer_names[3])
 
-        self.conv5 = layers.Conv2D(filters[4], (1, 1), strides=(1, 1), padding='same', use_bias=False, name=layer_names[4])
+        self.conv5 = layers.Conv2D(filters[4], (1, 1), strides=(
+            1, 1), padding='same', use_bias=False, name=layer_names[4])
         self.bn5 = layers.BatchNormalization(epsilon=0.001, name=layer_names[4])
-
 
     def call(self, input_tensor, training=False):
         x = self.conv1(input_tensor)
@@ -112,12 +116,14 @@ class _Conv5(tf.keras.Model):
 class _Conv2(tf.keras.Model):
     def __init__(self, filters, layer_idx, name=""):
         super(_Conv2, self).__init__(name=name)
-        
+
         layer_names = ["layer_{}".format(i) for i in layer_idx]
 
-        self.conv1 = layers.Conv2D(filters[0], (3, 3), strides=(1, 1), padding='same', use_bias=False, name=layer_names[0])
+        self.conv1 = layers.Conv2D(filters[0], (3, 3), strides=(
+            1, 1), padding='same', use_bias=False, name=layer_names[0])
         self.bn = layers.BatchNormalization(epsilon=0.001, name=layer_names[0])
-        self.conv2 = layers.Conv2D(filters[1], (1, 1), strides=(1, 1), padding='same', use_bias=True, name=layer_names[1])
+        self.conv2 = layers.Conv2D(filters[1], (1, 1), strides=(
+            1, 1), padding='same', use_bias=True, name=layer_names[1])
 
     def call(self, input_tensor, training=False):
         x = self.conv1(input_tensor)
@@ -130,10 +136,11 @@ class _Conv2(tf.keras.Model):
 class _Upsamling(tf.keras.Model):
     def __init__(self, filters, layer_idx, name=""):
         super(_Upsamling, self).__init__(name=name)
-        
+
         layer_names = ["layer_{}".format(i) for i in layer_idx]
 
-        self.conv = layers.Conv2D(filters[0], (1, 1), strides=(1, 1), padding='same', use_bias=False, name=layer_names[0])
+        self.conv = layers.Conv2D(filters[0], (1, 1), strides=(
+            1, 1), padding='same', use_bias=False, name=layer_names[0])
         self.bn = layers.BatchNormalization(epsilon=0.001, name=layer_names[0])
         self.upsampling = layers.UpSampling2D(2)
 
@@ -150,7 +157,7 @@ if __name__ == '__main__':
     s3 = tf.constant(np.random.randn(1, 32, 32, 256).astype(np.float32))
     s4 = tf.constant(np.random.randn(1, 16, 16, 512).astype(np.float32))
     s5 = tf.constant(np.random.randn(1, 8, 8, 1024).astype(np.float32))
-    
+
     # (1, 256, 256, 3) => (1, 8, 8, 1024)
     headnet = Headnet()
     f5, f4, f3 = headnet(s3, s4, s5)
@@ -158,6 +165,3 @@ if __name__ == '__main__':
 
     for v in headnet.variables:
         print(v.name)
-
-
-
