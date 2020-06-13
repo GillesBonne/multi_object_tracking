@@ -226,8 +226,8 @@ if __name__ == "__main__":
     physical_devices = tf.config.list_physical_devices('GPU')
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-    # Settings for the train process
-    epochs = 2
+    # Settings for the train process.
+    epochs = 21
     learning_rate = 0.01
     l2_reg = 0.001  # L2 regularization
     l2_norm = True  # L2 normalization
@@ -250,16 +250,17 @@ if __name__ == "__main__":
     labels_file = '../data/kitti_labels.bin'
 
     # Choose train/val/test.
-    sequences_train = [0]
+    sequences_train = [12]
     sequences_val = [12]
-    sequences_test = [14]
-    check_acceptable_splits('kitti', sequences_train, sequences_val, sequences_test)
+    sequences_test = [12]
+    check_acceptable_splits('kitti', sequences_train, sequences_val, sequences_test,
+                            allow_overfit=False)
 
     print('Amount of combinations per epoch: ', len(get_combinations(
         labels_file, sequences_train, window_size, num_combi_per_obj_per_epoch)))
 
     # Train the model
-    val_epochs = 5  # Run validation every n epochs
+    val_epochs = 10  # Run validation every n epochs
     model = train_model(model, images_file, labels_file,
                         epochs, learning_rate,
                         window_size, num_combi_per_obj_per_epoch,

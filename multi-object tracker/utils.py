@@ -104,7 +104,7 @@ def show_frame_with_labels(frame, bboxes, labels, probs, fps=30):
     plt.close()
 
 
-def check_acceptable_splits(dataset, train, val, test):
+def check_acceptable_splits(dataset, train, val, test, allow_overfit):
     """Check if the chosen train/val/test splits are valid.
 
   Args:
@@ -115,9 +115,10 @@ def check_acceptable_splits(dataset, train, val, test):
   """
     sequences = [*train, *val, *test]
 
-    # Check if the splits overlap.
-    if len(sequences) != len(set(sequences)):
-        raise ValueError('Overlap between splits detected.')
+    if allow_overfit:
+        # Check if the splits overlap.
+        if len(sequences) != len(set(sequences)):
+            raise ValueError('Overlap between splits detected.')
 
     # Check if all chosen sequences are valid.
     if dataset == 'kitti':
