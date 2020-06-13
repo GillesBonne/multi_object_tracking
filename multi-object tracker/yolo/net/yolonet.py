@@ -1,23 +1,23 @@
 # -*- coding: utf-8 -*-
 
-import tensorflow as tf
-import numpy as np
 import cv2
-
-layers = tf.keras.layers
-models = tf.keras.models
+import numpy as np
+import tensorflow as tf
 
 from yolo.net.bodynet import Bodynet
 from yolo.net.headnet import Headnet
 from yolo.net.weights import WeightReader
 
+layers = tf.keras.layers
+models = tf.keras.models
+
 
 # Yolo v3
 class Yolonet(tf.keras.Model):
     def __init__(self, n_classes=80):
-        
+
         super(Yolonet, self).__init__(name='')
-        
+
         self.body = Bodynet()
         self.head = Headnet(n_classes)
 
@@ -27,7 +27,7 @@ class Yolonet(tf.keras.Model):
     def load_darknet_params(self, weights_file, skip_detect_layer=False):
         weight_reader = WeightReader(weights_file)
         weight_reader.load_weights(self, skip_detect_layer)
-    
+
     def predict(self, input_array):
         f5, f4, f3 = self.call(tf.constant(input_array.astype(np.float32)))
         return f5.numpy(), f4.numpy(), f3.numpy()
@@ -67,7 +67,7 @@ def preprocess_input(image, net_size):
 
 if __name__ == '__main__':
     inputs = tf.constant(np.random.randn(1, 256, 256, 3).astype(np.float32))
-    
+
     # (1, 256, 256, 3) => (1, 8, 8, 1024)
     yolonet = Yolonet()
     f5, f4, f3 = yolonet(inputs)

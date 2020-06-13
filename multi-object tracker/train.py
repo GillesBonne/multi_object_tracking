@@ -2,16 +2,16 @@
 
 from __future__ import absolute_import, division, print_function
 
-import h5py
-import pickle
 import datetime
+import pickle
+from pathlib import Path
 
+import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 import tensorflow_addons as tfa
 
-from pathlib import Path
 from data import get_combinations
 from embeds import EmbeddingsDatabase
 from eval import MOTMetric
@@ -126,7 +126,7 @@ def run_validation(model, images_file, labels_file, sequences_val, memory_length
 def train_model(model, images_file, labels_file, epochs, learning_rate,
                 window_size, num_combi_per_obj_per_epoch,
                 memory_length, memory_update, max_distance,
-                sequences_train, sequences_val, val_epochs, 
+                sequences_train, sequences_val, val_epochs,
                 save_directory):
     """Create training loop for the object tracker model.
 
@@ -175,7 +175,7 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
             # Run validation program on sequence and get score.
             tracker = MultiTrackNet(model)
             MOT_metric, avg_cost = run_validation(tracker, images_file, labels_file,
-                            sequences_val, memory_length, memory_update, max_distance)
+                                                  sequences_val, memory_length, memory_update, max_distance)
 
             # Print statistics with accuracy and precision
             print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.1%}, Precision: {:.1%}".format(
@@ -193,7 +193,6 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
 
             # Append the results.
             train_loss_results.append(train_loss.result())
-        
 
     # Visualize the results of training.
     fig, axes = plt.subplots(4, sharex=True, figsize=(7, 7))
@@ -227,8 +226,8 @@ if __name__ == "__main__":
     physical_devices = tf.config.list_physical_devices('GPU')
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-    # Settings for the train process
-    epochs = 2
+    # Settings for the train process.
+    epochs = 21
     learning_rate = 0.01
     l2_reg = 0.001  # L2 regularization
     l2_norm = True  # L2 normalization
@@ -251,16 +250,17 @@ if __name__ == "__main__":
     labels_file = '../data/kitti_labels.bin'
 
     # Choose train/val/test.
-    sequences_train = [0]
+    sequences_train = [12]
     sequences_val = [12]
-    sequences_test = [14]
-    check_acceptable_splits('kitti', sequences_train, sequences_val, sequences_test)
+    sequences_test = [12]
+    check_acceptable_splits('kitti', sequences_train, sequences_val, sequences_test,
+                            allow_overfit=False)
 
     print('Amount of combinations per epoch: ', len(get_combinations(
         labels_file, sequences_train, window_size, num_combi_per_obj_per_epoch)))
 
     # Train the model
-    val_epochs = 5  # Run validation every n epochs
+    val_epochs = 10  # Run validation every n epochs
     model = train_model(model, images_file, labels_file,
                         epochs, learning_rate,
                         window_size, num_combi_per_obj_per_epoch,
@@ -281,7 +281,7 @@ if __name__ == "__main__":
 
     # Run the validation with visualization
     MOT_metric, _ = run_validation(tracker, images_file, labels_file,
-            sequences_test, memory_length, memory_update, max_distance=0.1, visual='re-id')
+                                   sequences_test, memory_length, memory_update, max_distance=0.1, visual='re-id')
 
     # Print some of the statistics
     print('\nTest results:')
