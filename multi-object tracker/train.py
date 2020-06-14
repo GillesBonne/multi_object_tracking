@@ -185,8 +185,10 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
                                                   sequences_val, memory_length, memory_update, max_distance)
 
             # Print statistics with accuracy and precision
-            print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.1%}, Precision: {:.1%}, Average embed cost: {:.3f}".format(
-                epoch, train_loss.result(), MOT_metric.get_MOTA(), MOT_metric.get_MOTP(), avg_cost))
+            print("Epoch {:03d}: Loss:{:.3f}, Acc:{:.1%}, Precision:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
+                epoch, train_loss.result(),
+                MOT_metric.get_MOTA(), MOT_metric.get_MOTP(),
+                avg_cost, MOT_metric.get_num_switches()))
 
             # Append the results
             train_loss_results.append(train_loss.result())
@@ -196,7 +198,7 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
             mot_switches_results.append(MOT_metric.get_num_switches())
         else:
             # Print statistics without accuracy and precision
-            print("Epoch {:03d}: Loss: {:.3f}".format(epoch, train_loss.result()))
+            print("Epoch {:03d}: Loss:{:.3f}".format(epoch, train_loss.result()))
 
             # Append the results.
             train_loss_results.append(train_loss.result())
@@ -303,6 +305,7 @@ if __name__ == "__main__":
     print('\nTest results:')
     print('Multi-object tracking accuracy: {:.1%}'.format(MOT_metric.get_MOTA()))
     print('Multi-object tracking precision: {:.1%}'.format(MOT_metric.get_MOTP()))
+    print('Multi-object tracking switches: {}'.format(MOT_metric.get_num_switches()))
     print('Multi-object tracking avg embed cost: {:.3f}'.format(avg_cost))
     print('Multi-object detection precision: {:.1%}'.format(MOT_metric.get_precision()))
     print('Multi-object detection recall: {:.1%}\n'.format(MOT_metric.get_recall()))
