@@ -231,13 +231,13 @@ if __name__ == "__main__":
 
     # Settings for the train process.
     epochs = 11
-    learning_rate = 0.01
+    learning_rate = 0.0001
     l2_reg = 0.001  # L2 regularization
     l2_norm = True  # L2 normalization
 
     memory_length = 30
     memory_update = 0.75
-    max_distance = 0.1
+    max_distance = 0.5
 
     window_size = 10
     num_combi_per_obj_per_epoch = 1
@@ -292,13 +292,14 @@ if __name__ == "__main__":
 
     # Run the validation with visualization.
     MOT_metric, avg_cost = run_validation(tracker, images_file, labels_file,
-                                          sequences_test, memory_length, memory_update, max_distance=0.1,
+                                          sequences_test, memory_length, memory_update, max_distance,
                                           visual='re-id', visual_location=save_directory)
 
     # Print some of the statistics.
     print('\nTest results:')
     print('Multi-object tracking accuracy: {:.1%}'.format(MOT_metric.get_MOTA()))
     print('Multi-object tracking precision: {:.1%}'.format(MOT_metric.get_MOTP()))
+    print('Multi-object tracking switches: {}'.format(MOT_metric.get_num_switches()))
     print('Multi-object tracking avg embed cost: {:.3f}'.format(avg_cost))
     print('Multi-object detection precision: {:.1%}'.format(MOT_metric.get_precision()))
     print('Multi-object detection recall: {:.1%}\n'.format(MOT_metric.get_recall()))
