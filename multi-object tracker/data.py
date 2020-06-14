@@ -51,7 +51,6 @@ def get_combinations(labels_file, sequences, window_size, num_combi_per_obj_per_
                         combs = set(list(itertools.combinations(frame_window, 2)))
                         frame_combinations.update(combs)
 
-                num_combi_per_obj_per_epoch = 10
                 frame_combinations = np.array(list(frame_combinations))
                 frame_indices = np.random.choice(
                     len(frame_combinations), num_combi_per_obj_per_epoch, replace=True)
