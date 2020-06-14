@@ -46,7 +46,7 @@ def calc_cosine_sim(v1, v2):
     return abs(np.dot(v1, v2_T) / (np.sqrt(np.dot(v1, v1_T)) * np.sqrt(np.dot(v2, v2_T))))
 
 
-def show_frame_with_ids(frame, bboxes, ids, frame_num, seq_name):
+def show_frame_with_ids(frame, bboxes, ids, frame_num, seq_name, visual_location):
     """Visualize the video frame with bounding boxes and ids.
 
   Args:
@@ -77,8 +77,9 @@ def show_frame_with_ids(frame, bboxes, ids, frame_num, seq_name):
                 va='bottom')
 
     # Show the frame with the bounding boxes and ids.
-    Path(seq_name).mkdir(parents=True, exist_ok=True)
-    fig.savefig('{}/frame{}.jpg'.format(seq_name, frame_num))
+    visual_path = visual_location + '/'+seq_name
+    Path(visual_path).mkdir(parents=True, exist_ok=True)
+    fig.savefig('{}/{}/frame{}.jpg'.format(visual_location, seq_name, frame_num))
     plt.close()
 
 
@@ -128,3 +129,31 @@ def check_acceptable_splits(dataset, train, val, test, allow_overfit):
             raise ValueError('Sequence higher than 20 not possible.')
     else:
         raise ValueError('Function not defined for this dataset. The available dataset is: kitti')
+
+
+def export_parameters(save_directory, learning_rate, l2_reg, l2_norm,
+                      memory_length, memory_update, max_distance,
+                      window_size, num_combi_per_obj_per_epoch,
+                      sequences_train, sequences_val, sequences_test):
+    with open(save_directory+'/config.txt', mode='w') as file:
+        file.write('learning rate: '+str(learning_rate))
+        file.write('\n')
+        file.write('l2 reg: '+str(l2_reg))
+        file.write('\n')
+        file.write('l2 norm: '+str(l2_norm))
+        file.write('\n')
+        file.write('memory length: '+str(memory_length))
+        file.write('\n')
+        file.write('memory update: '+str(memory_update))
+        file.write('\n')
+        file.write('max distance: '+str(max_distance))
+        file.write('\n')
+        file.write('window size: '+str(window_size))
+        file.write('\n')
+        file.write('combi per obj per epoch: '+str(num_combi_per_obj_per_epoch))
+        file.write('\n')
+        file.write('seq train: '+str(sequences_train))
+        file.write('\n')
+        file.write('seq val: '+str(sequences_val))
+        file.write('\n')
+        file.write('seq test: '+str(sequences_test))

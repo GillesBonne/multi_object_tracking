@@ -17,8 +17,8 @@ from embeds import EmbeddingsDatabase
 from eval import MOTMetric
 from model import TrackNet
 from model_extension import MultiTrackNet
-from utils import (check_acceptable_splits, resize_bb, show_frame_with_ids,
-                   show_frame_with_labels, slice_image)
+from utils import (check_acceptable_splits, export_parameters, resize_bb,
+                   show_frame_with_ids, show_frame_with_labels, slice_image)
 
 
 def get_batch(images_file, labels_file, combination, image_size=128):
@@ -69,7 +69,7 @@ def get_batch(images_file, labels_file, combination, image_size=128):
 
 
 def run_validation(model, images_file, labels_file, sequences_val, memory_length,
-                   memory_update, max_distance, image_size=128, visual=None):
+                   memory_update, max_distance, image_size=128, visual=None, visual_location=None):
     """Run validation sequence on model.
 
   Args:
@@ -115,7 +115,8 @@ def run_validation(model, images_file, labels_file, sequences_val, memory_length
                 if visual == 're-id':
                     # Visualize the frame with bouding boxes and ids.
                     show_frame_with_ids(frame, hyp_bbs.copy(), hyp_ids,
-                                        frame_num=i, seq_name='seq{}'.format(str(seq)))
+                                        frame_num=i, seq_name='seq{}'.format(str(seq)),
+                                        visual_location=visual_location)
                 elif visual == 'detect':
                     show_frame_with_labels(frame, boxes, labels, probs)
 
@@ -178,8 +179,8 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
                                                   sequences_val, memory_length, memory_update, max_distance)
 
             # Print statistics with accuracy and precision
-            print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.1%}, Precision: {:.1%}".format(
-                epoch, train_loss.result(), MOT_metric.get_MOTA(), MOT_metric.get_MOTP()))
+            print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.1%}, Precision: {:.1%}, Average embed cost: {:.3f}".format(
+                epoch, train_loss.result(), MOT_metric.get_MOTA(), MOT_metric.get_MOTP(), avg_cost))
 
             # Append the results
             train_loss_results.append(train_loss.result())
@@ -227,7 +228,7 @@ if __name__ == "__main__":
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
     # Settings for the train process.
-    epochs = 21
+    epochs = 1
     learning_rate = 0.01
     l2_reg = 0.001  # L2 regularization
     l2_norm = True  # L2 normalization
@@ -239,9 +240,9 @@ if __name__ == "__main__":
     window_size = 10
     num_combi_per_obj_per_epoch = 1
 
-    # Create unque folder for every training session
+    # Create unique folder for every training session.
     now = datetime.datetime.now()
-    save_directory = 'saved_model_' + now.strftime('%Y-%m-%d_%H-%M-%S')
+    save_directory = 'saved_models/saved_model_' + now.strftime('%Y-%m-%d_%H-%M-%S')
     Path(save_directory).mkdir(parents=True, exist_ok=True)
 
     # Select the model and data.
@@ -256,11 +257,19 @@ if __name__ == "__main__":
     check_acceptable_splits('kitti', sequences_train, sequences_val, sequences_test,
                             allow_overfit=True)
 
+    # Save training parameters.
+    export_parameters(save_directory, learning_rate, l2_reg, l2_norm,
+                      memory_length, memory_update, max_distance,
+                      window_size, num_combi_per_obj_per_epoch,
+                      sequences_train, sequences_val, sequences_test)
+
     print('Amount of combinations per epoch: ', len(get_combinations(
         labels_file, sequences_train, window_size, num_combi_per_obj_per_epoch)))
 
-    # Train the model
-    val_epochs = 10  # Run validation every n epochs
+    # Run validation every n epochs.
+    val_epochs = 10
+
+    # Train the model.
     model = train_model(model, images_file, labels_file,
                         epochs, learning_rate,
                         window_size, num_combi_per_obj_per_epoch,
@@ -268,24 +277,26 @@ if __name__ == "__main__":
                         sequences_train, sequences_val, val_epochs,
                         save_directory)
 
-    # Save the weights of the model
+    # Save the weights of the model.
     model_path = save_directory + '/saved_model.ckpt'
     model.save_weights(model_path)
 
-    # Load the previously saved weights
+    # Load the previously saved weights.
     new_model = TrackNet(padding='valid', use_bias=False, l2_reg=l2_reg, l2_norm=l2_norm)
     new_model.load_weights(model_path)
 
-    # Extend the re-identification model with detection
+    # Extend the re-identification model with detection.
     tracker = MultiTrackNet(new_model)
 
-    # Run the validation with visualization
-    MOT_metric, _ = run_validation(tracker, images_file, labels_file,
-                                   sequences_test, memory_length, memory_update, max_distance=0.1, visual='re-id')
+    # Run the validation with visualization.
+    MOT_metric, avg_cost = run_validation(tracker, images_file, labels_file,
+                                          sequences_test, memory_length, memory_update, max_distance=0.1,
+                                          visual='re-id', visual_location=save_directory)
 
-    # Print some of the statistics
+    # Print some of the statistics.
     print('\nTest results:')
     print('Multi-object tracking accuracy: {:.1%}'.format(MOT_metric.get_MOTA()))
     print('Multi-object tracking precision: {:.1%}'.format(MOT_metric.get_MOTP()))
+    print('Multi-object tracking avg embed cost: {:.3f}'.format(avg_cost))
     print('Multi-object detection precision: {:.1%}'.format(MOT_metric.get_precision()))
     print('Multi-object detection recall: {:.1%}\n'.format(MOT_metric.get_recall()))
