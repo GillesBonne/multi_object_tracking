@@ -254,7 +254,7 @@ if __name__ == "__main__":
     sequences_val = [12]
     sequences_test = [12]
     check_acceptable_splits('kitti', sequences_train, sequences_val, sequences_test,
-                            allow_overfit=False)
+                            allow_overfit=True)
 
     print('Amount of combinations per epoch: ', len(get_combinations(
         labels_file, sequences_train, window_size, num_combi_per_obj_per_epoch)))
