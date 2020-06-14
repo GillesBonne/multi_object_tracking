@@ -115,7 +115,7 @@ def check_acceptable_splits(dataset, train, val, test, allow_overfit):
   """
     sequences = [*train, *val, *test]
 
-    if allow_overfit:
+    if not(allow_overfit):
         # Check if the splits overlap.
         if len(sequences) != len(set(sequences)):
             raise ValueError('Overlap between splits detected.')
