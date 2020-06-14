@@ -17,9 +17,9 @@ from embeds import EmbeddingsDatabase
 from eval import MOTMetric
 from model import TrackNet
 from model_extension import MultiTrackNet
-from utils import (check_acceptable_splits, export_parameters, resize_bb,
-                   show_frame_with_ids, show_frame_with_labels, slice_image,
-                   get_embeddings)
+from utils import (check_acceptable_splits, export_parameters, get_embeddings,
+                   resize_bb, show_frame_with_ids, show_frame_with_labels,
+                   slice_image)
 
 
 def get_batch(images_file, labels_file, combination, image_size=128):
@@ -69,9 +69,9 @@ def get_batch(images_file, labels_file, combination, image_size=128):
     return image_array, label_array
 
 
-def run_validation(model, images_file, labels_file, sequences_val, memory_length,
-                   memory_update, max_distance, image_size=128, visual=None, 
-                   visual_location=None, detector=True):
+def run_validation(model, detector, images_file, labels_file, sequences_val, memory_length,
+                   memory_update, max_distance, image_size=128, visual=None,
+                   visual_location=None):
     """Run validation sequence on model.
 
   Args:
@@ -104,10 +104,10 @@ def run_validation(model, images_file, labels_file, sequences_val, memory_length
                                     label['right'], label['bottom']])
 
                 # Get the embeddings and bouding boxes by running the model
-                if detector == True:
+                if detector:
                     embeddings, boxes, labels, probs = model(frame)
                     hyp_bbs = np.array(boxes, dtype=int)
-                else: 
+                else:
                     embeddings = get_embeddings(model, frame, gt_labels)
                     hyp_bbs = obj_bbs.copy()
 
@@ -130,7 +130,7 @@ def run_validation(model, images_file, labels_file, sequences_val, memory_length
         return mot_metric, embeds_database.get_average_cost()
 
 
-def train_model(model, images_file, labels_file, epochs, learning_rate,
+def train_model(model, detector, images_file, labels_file, epochs, learning_rate,
                 window_size, num_combi_per_obj_per_epoch,
                 memory_length, memory_update, max_distance,
                 sequences_train, sequences_val, val_epochs,
@@ -179,10 +179,17 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
             train_loss.update_state(loss)
 
         if epoch % val_epochs == 0:
+
             # Run validation program on sequence and get score.
-            tracker = MultiTrackNet(model)
-            MOT_metric, avg_cost = run_validation(tracker, images_file, labels_file,
-                                                  sequences_val, memory_length, memory_update, max_distance)
+            if detector:
+                tracker = MultiTrackNet(model)
+                MOT_metric, avg_cost = run_validation(tracker, detector, images_file, labels_file,
+                                                      sequences_val, memory_length, memory_update,
+                                                      max_distance)
+            else:
+                MOT_metric, avg_cost = run_validation(model, detector, images_file, labels_file,
+                                                      sequences_val, memory_length, memory_update,
+                                                      max_distance)
 
             # Print statistics with accuracy and precision
             print("Epoch {:03d}: Loss:{:.3f}, Acc:{:.1%}, Precision:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
@@ -236,17 +243,19 @@ if __name__ == "__main__":
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
     # Settings for the train process.
-    epochs = 20
-    learning_rate = 0.01
+    epochs = 1001
+    learning_rate = 0.1
     l2_reg = 0.001  # L2 regularization
     l2_norm = True  # L2 normalization
 
-    memory_length = 30
+    memory_length = 1
     memory_update = 0.75
     max_distance = 0.5
 
-    window_size = 10
-    num_combi_per_obj_per_epoch = 100
+    window_size = 2
+    num_combi_per_obj_per_epoch = 1
+
+    detector = False
 
     # Create unique folder for every training session.
     now = datetime.datetime.now()
@@ -259,9 +268,9 @@ if __name__ == "__main__":
     labels_file = '../data/kitti_labels.bin'
 
     # Choose train/val/test.
-    sequences_train = [0]
-    sequences_val = [0]
-    sequences_test = [0]
+    sequences_train = [12]
+    sequences_val = [12]
+    sequences_test = [12]
     check_acceptable_splits('kitti', sequences_train, sequences_val, sequences_test,
                             allow_overfit=True)
 
@@ -275,10 +284,10 @@ if __name__ == "__main__":
         labels_file, sequences_train, window_size, num_combi_per_obj_per_epoch)))
 
     # Run validation every n epochs.
-    val_epochs = 100
+    val_epochs = 200
 
     # Train the model.
-    model = train_model(model, images_file, labels_file,
+    model = train_model(model, detector, images_file, labels_file,
                         epochs, learning_rate,
                         window_size, num_combi_per_obj_per_epoch,
                         memory_length, memory_update, max_distance,
@@ -293,13 +302,19 @@ if __name__ == "__main__":
     new_model = TrackNet(padding='valid', use_bias=False, l2_reg=l2_reg, l2_norm=l2_norm)
     new_model.load_weights(model_path)
 
-    # Extend the re-identification model with detection.
-    tracker = MultiTrackNet(new_model)
+    if detector:
+        # Extend the re-identification model with detection.
+        tracker = MultiTrackNet(new_model)
 
-    # Run the validation with visualization.
-    MOT_metric, avg_cost = run_validation(new_model, images_file, labels_file,
-                                          sequences_test, memory_length, memory_update, max_distance,
-                                          visual='re-id', visual_location=None, detector=False)
+        # Run the validation with visualization.
+        MOT_metric, avg_cost = run_validation(tracker, detector, images_file, labels_file,
+                                              sequences_test, memory_length, memory_update, max_distance,
+                                              visual='re-id', visual_location=save_directory)
+    else:
+        # Run the validation with visualization.
+        MOT_metric, avg_cost = run_validation(new_model, detector, images_file, labels_file,
+                                              sequences_test, memory_length, memory_update, max_distance,
+                                              visual='re-id', visual_location=save_directory)
 
     # Print some of the statistics.
     print('\nTest results:')

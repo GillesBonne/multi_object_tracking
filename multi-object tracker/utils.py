@@ -11,6 +11,7 @@ import numpy as np
 
 from yolo.utils.box import visualize_boxes
 
+
 def get_embeddings(model, frame, label_dict, image_size=128):
     """Return the embedding of the model for given set of bounding boxes."""
     embeddings = []
@@ -87,12 +88,12 @@ def show_frame_with_ids(frame, bboxes, ids, frame_num, seq_name, visual_location
                 va='bottom')
 
     # Show the frame with the bounding boxes and ids.
-    if visual_location == None:
+    if visual_location is None:
         plt.show(block=False)
         plt.pause(0.1)
         plt.close()
     else:
-        visual_path = visual_location + '/'+ seq_name
+        visual_path = visual_location + '/' + seq_name
         Path(visual_path).mkdir(parents=True, exist_ok=True)
         fig.savefig('{}/{}/frame{}.jpg'.format(visual_location, seq_name, frame_num))
         plt.close()
