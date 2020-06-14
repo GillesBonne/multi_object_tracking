@@ -18,7 +18,8 @@ from eval import MOTMetric
 from model import TrackNet
 from model_extension import MultiTrackNet
 from utils import (check_acceptable_splits, export_parameters, resize_bb,
-                   show_frame_with_ids, show_frame_with_labels, slice_image)
+                   show_frame_with_ids, show_frame_with_labels, slice_image,
+                   get_embeddings)
 
 
 def get_batch(images_file, labels_file, combination, image_size=128):
@@ -69,7 +70,8 @@ def get_batch(images_file, labels_file, combination, image_size=128):
 
 
 def run_validation(model, images_file, labels_file, sequences_val, memory_length,
-                   memory_update, max_distance, image_size=128, visual=None, visual_location=None):
+                   memory_update, max_distance, image_size=128, visual=None, 
+                   visual_location=None, detector=True):
     """Run validation sequence on model.
 
   Args:
@@ -102,15 +104,19 @@ def run_validation(model, images_file, labels_file, sequences_val, memory_length
                                     label['right'], label['bottom']])
 
                 # Get the embeddings and bouding boxes by running the model
-                embeddings, boxes, labels, probs = model(frame)
-                hyp_bbs = np.array(boxes, dtype=int)
+                if detector == True:
+                    embeddings, boxes, labels, probs = model(frame)
+                    hyp_bbs = np.array(boxes, dtype=int)
+                else: 
+                    embeddings = get_embeddings(model, frame, gt_labels)
+                    hyp_bbs = obj_bbs.copy()
 
                 # Perform the re-identification
                 hyp_ids = embeds_database.match_embeddings(embeddings, max_distance)
 
                 # Update the MOT metric.
                 mot_metric.update(obj_ids, hyp_ids,
-                                  np.array(obj_bbs.copy()), np.array(hyp_bbs.copy()))
+                                  np.array(obj_bbs.copy()), np.array(hyp_bbs.copy()))  # << CHANGE THIS BACK!
 
                 if visual == 're-id':
                     # Visualize the frame with bouding boxes and ids.
@@ -228,17 +234,17 @@ if __name__ == "__main__":
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
     # Settings for the train process.
-    epochs = 1
+    epochs = 20
     learning_rate = 0.01
     l2_reg = 0.001  # L2 regularization
     l2_norm = True  # L2 normalization
 
     memory_length = 30
     memory_update = 0.75
-    max_distance = 0.1
+    max_distance = 0.5
 
     window_size = 10
-    num_combi_per_obj_per_epoch = 1
+    num_combi_per_obj_per_epoch = 100
 
     # Create unique folder for every training session.
     now = datetime.datetime.now()
@@ -251,9 +257,9 @@ if __name__ == "__main__":
     labels_file = '../data/kitti_labels.bin'
 
     # Choose train/val/test.
-    sequences_train = [12]
-    sequences_val = [12]
-    sequences_test = [12]
+    sequences_train = [0]
+    sequences_val = [0]
+    sequences_test = [0]
     check_acceptable_splits('kitti', sequences_train, sequences_val, sequences_test,
                             allow_overfit=True)
 
@@ -267,7 +273,7 @@ if __name__ == "__main__":
         labels_file, sequences_train, window_size, num_combi_per_obj_per_epoch)))
 
     # Run validation every n epochs.
-    val_epochs = 10
+    val_epochs = 100
 
     # Train the model.
     model = train_model(model, images_file, labels_file,
@@ -289,9 +295,9 @@ if __name__ == "__main__":
     tracker = MultiTrackNet(new_model)
 
     # Run the validation with visualization.
-    MOT_metric, avg_cost = run_validation(tracker, images_file, labels_file,
-                                          sequences_test, memory_length, memory_update, max_distance=0.1,
-                                          visual='re-id', visual_location=save_directory)
+    MOT_metric, avg_cost = run_validation(new_model, images_file, labels_file,
+                                          sequences_test, memory_length, memory_update, max_distance,
+                                          visual='re-id', visual_location=None, detector=False)
 
     # Print some of the statistics.
     print('\nTest results:')

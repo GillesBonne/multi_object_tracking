@@ -11,6 +11,16 @@ import numpy as np
 
 from yolo.utils.box import visualize_boxes
 
+def get_embeddings(model, frame, label_dict, image_size=128):
+    """Return the embedding of the model for given set of bounding boxes."""
+    embeddings = []
+    for label in label_dict.values():
+        bbox = slice_image(frame.copy(), label)
+        bbox = resize_bb(bbox, image_size)
+        embeddings.append(model(bbox).numpy())
+
+    return embeddings
+
 
 def slice_image(im, dict_obj):
     """Slice the bounding box out of the image and return."""
@@ -46,7 +56,7 @@ def calc_cosine_sim(v1, v2):
     return abs(np.dot(v1, v2_T) / (np.sqrt(np.dot(v1, v1_T)) * np.sqrt(np.dot(v2, v2_T))))
 
 
-def show_frame_with_ids(frame, bboxes, ids, frame_num, seq_name, visual_location):
+def show_frame_with_ids(frame, bboxes, ids, frame_num, seq_name, visual_location=None):
     """Visualize the video frame with bounding boxes and ids.
 
   Args:
@@ -77,13 +87,18 @@ def show_frame_with_ids(frame, bboxes, ids, frame_num, seq_name, visual_location
                 va='bottom')
 
     # Show the frame with the bounding boxes and ids.
-    visual_path = visual_location + '/'+seq_name
-    Path(visual_path).mkdir(parents=True, exist_ok=True)
-    fig.savefig('{}/{}/frame{}.jpg'.format(visual_location, seq_name, frame_num))
-    plt.close()
+    if visual_location == None:
+        plt.show(block=False)
+        plt.pause(0.1)
+        plt.close()
+    else:
+        visual_path = visual_location + '/'+ seq_name
+        Path(visual_path).mkdir(parents=True, exist_ok=True)
+        fig.savefig('{}/{}/frame{}.jpg'.format(visual_location, seq_name, frame_num))
+        plt.close()
 
 
-def show_frame_with_labels(frame, bboxes, labels, probs, fps=30):
+def show_frame_with_labels(frame, bboxes, labels, probs):
     """Visualize the video frame with bounding boxes, labels and probabilities.
 
   Args:
@@ -91,7 +106,6 @@ def show_frame_with_labels(frame, bboxes, labels, probs, fps=30):
     bboxes: Bounding box data for objects in the current frame.
     labels: Labels for the bounding boxes.
     probs: Probabilities for the bounding boxes.
-    fps: Frame per second, used to determine the pause in between frames.
   """
     text_labels = ["Cyclist", "Misc", "Person_sitting", "Tram", "Truck", "Van", "Car", "Person"]
     visualize_boxes(frame, bboxes, labels, probs, text_labels)
@@ -101,7 +115,7 @@ def show_frame_with_labels(frame, bboxes, labels, probs, fps=30):
     plt.axis('off')
 
     plt.show(block=False)
-    plt.pause(1/fps)
+    plt.pause(0.1)
     plt.close()
 
 
