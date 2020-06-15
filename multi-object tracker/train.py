@@ -19,7 +19,7 @@ from model import TrackNet
 from model_extension import MultiTrackNet
 from utils import (check_acceptable_splits, export_parameters, resize_bb,
                    show_frame_with_ids, show_frame_with_labels, slice_image,
-                   get_embeddings)
+                   get_embeddings, calc_distance, load_overfit_bboxes)
 
 
 def get_batch(images_file, labels_file, combination, image_size=128):
@@ -158,6 +158,9 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
     train_loss = tf.keras.metrics.Mean()
 
+    # Load the validation images and show them
+    bike0, person0, person1, person2 = load_overfit_bboxes()
+
     # Training loop.
     for epoch in range(epochs):
         # Get all bouding box combinations for this sequence.
@@ -178,6 +181,36 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
             # Track progress.
             train_loss.update_state(loss)
 
+        # Show statistics of the training process
+        print("\nEpoch {:03d}: Loss:{:.3f}".format(epoch, train_loss.result()))
+        
+        bike0_ = model(bike0)
+        pos_distance = calc_distance(bike0_[0], bike0_[1])
+        neg_distance = calc_distance(bike0_[0], bike0_[2])
+        print("Bike0: Positive:{:.3f}, Negative:{:.3f}, Diff:{:.3f}".format(
+            pos_distance, neg_distance, abs(pos_distance-neg_distance)))
+
+        person0_ = model(person0)
+        pos_distance = calc_distance(person0_[0], person0_[1])
+        neg_distance = calc_distance(person0_[0], person0_[2])
+        print("Person0: Positive:{:.3f}, Negative:{:.3f}, Diff:{:.3f}".format(
+            pos_distance, neg_distance, abs(pos_distance-neg_distance)))
+
+        person1_ = model(person1)
+        pos_distance = calc_distance(person1_[0], person1_[1])
+        neg_distance = calc_distance(person1_[0], person1_[2])
+        print("Person1: Positive:{:.3f}, Negative:{:.3f}, Diff:{:.3f}".format(
+            pos_distance, neg_distance, abs(pos_distance-neg_distance)))
+
+        person2_ = model(person2)
+        pos_distance = calc_distance(person2_[0], person2_[1])
+        neg_distance = calc_distance(person2_[0], person2_[2])
+        print("Person2: Positive:{:.3f}, Negative:{:.3f}, Diff:{:.3f}".format(
+            pos_distance, neg_distance, abs(pos_distance-neg_distance)))
+
+        # Append the results.
+        train_loss_results.append(train_loss.result())
+
         if epoch % val_epochs == 0:
             # Run validation program on sequence and get score.
             tracker = MultiTrackNet(model)
@@ -185,23 +218,15 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
                                                   sequences_val, memory_length, memory_update, max_distance)
 
             # Print statistics with accuracy and precision
-            print("Epoch {:03d}: Loss:{:.3f}, Acc:{:.1%}, Precision:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
-                epoch, train_loss.result(),
+            print("Acc:{:.1%}, Precision:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
                 MOT_metric.get_MOTA(), MOT_metric.get_MOTP(),
                 avg_cost, MOT_metric.get_num_switches()))
 
             # Append the results
-            train_loss_results.append(train_loss.result())
             mot_metric_epochs.append(epoch)
             mot_accuracy_results.append(MOT_metric.get_MOTA())
             mot_precision_results.append(MOT_metric.get_MOTP())
             mot_switches_results.append(MOT_metric.get_num_switches())
-        else:
-            # Print statistics without accuracy and precision
-            print("Epoch {:03d}: Loss:{:.3f}".format(epoch, train_loss.result()))
-
-            # Append the results.
-            train_loss_results.append(train_loss.result())
 
     # Visualize the results of training.
     fig, axes = plt.subplots(4, sharex=True, figsize=(7, 7))
@@ -236,17 +261,17 @@ if __name__ == "__main__":
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
     # Settings for the train process.
-    epochs = 20
-    learning_rate = 0.01
-    l2_reg = 0.001  # L2 regularization
+    epochs = 100
+    learning_rate = 0.001
+    l2_reg = 0.0001  # L2 regularization
     l2_norm = True  # L2 normalization
 
     memory_length = 30
     memory_update = 0.75
     max_distance = 0.5
 
-    window_size = 10
-    num_combi_per_obj_per_epoch = 100
+    window_size = 3
+    num_combi_per_obj_per_epoch = 10
 
     # Create unique folder for every training session.
     now = datetime.datetime.now()
@@ -259,9 +284,9 @@ if __name__ == "__main__":
     labels_file = '../data/kitti_labels.bin'
 
     # Choose train/val/test.
-    sequences_train = [0]
-    sequences_val = [0]
-    sequences_test = [0]
+    sequences_train = [13]
+    sequences_val = [13]
+    sequences_test = [13]
     check_acceptable_splits('kitti', sequences_train, sequences_val, sequences_test,
                             allow_overfit=True)
 
@@ -286,6 +311,7 @@ if __name__ == "__main__":
                         save_directory)
 
     # Save the weights of the model.
+    save_directory = 'saved_models/saved_model_2020-06-14_14-22-08'
     model_path = save_directory + '/saved_model.ckpt'
     model.save_weights(model_path)
 
