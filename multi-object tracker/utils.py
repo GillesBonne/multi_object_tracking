@@ -9,8 +9,8 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 
-from PIL import Image
 from yolo.utils.box import visualize_boxes
+
 
 def get_embeddings(model, frame, label_dict, image_size=128):
     """Return the embedding of the model for given set of bounding boxes."""
@@ -88,12 +88,12 @@ def show_frame_with_ids(frame, bboxes, ids, frame_num, seq_name, visual_location
                 va='bottom')
 
     # Show the frame with the bounding boxes and ids.
-    if visual_location == None:
+    if visual_location is None:
         plt.show(block=False)
         plt.pause(0.1)
         plt.close()
     else:
-        visual_path = visual_location + '/'+ seq_name
+        visual_path = visual_location + '/' + seq_name
         Path(visual_path).mkdir(parents=True, exist_ok=True)
         fig.savefig('{}/{}/frame{}.jpg'.format(visual_location, seq_name, frame_num))
         plt.close()
@@ -172,65 +172,3 @@ def export_parameters(save_directory, learning_rate, l2_reg, l2_norm,
         file.write('seq val: '+str(sequences_val))
         file.write('\n')
         file.write('seq test: '+str(sequences_test))
-
-
-def load_overfit_bboxes():
-    """Load small set of bounding boxes for overfitting."""
-    print('This function only provides bounding boxes for sequence 13!')
-
-    bike0 = np.empty([3, 128, 128, 3], dtype=int)
-    person0 = np.empty([3, 128, 128, 3], dtype=int)
-    person1 = np.empty([3, 128, 128, 3], dtype=int)
-    person2 = np.empty([3, 128, 128, 3], dtype=int)
-
-    f, axarr = plt.subplots(4,3)
-    bike0[0,:,:,:] = Image.open('val_images/bike0_0.png')
-    axarr[0,0].imshow(bike0[0,:,:,:])
-    axarr[0,0].axis('off')
-    bike0[1,:,:,:] = Image.open('val_images/bike0_1.png')
-    axarr[0,1].imshow(bike0[1,:,:,:])
-    axarr[0,1].axis('off')
-    bike0[2,:,:,:] = Image.open('val_images/bike0_2.png')
-    axarr[0,2].imshow(bike0[2,:,:,:])
-    axarr[0,2].axis('off')
-
-    person0[0,:,:,:] = Image.open('val_images/person0_0.png')
-    axarr[1,0].imshow(person0[0,:,:,:])
-    axarr[1,0].axis('off')
-    person0[1,:,:,:] = Image.open('val_images/person0_1.png')
-    axarr[1,1].imshow(person0[1,:,:,:])
-    axarr[1,1].axis('off')
-    person0[2,:,:,:] = Image.open('val_images/person0_2.png')
-    axarr[1,2].imshow(person0[2,:,:,:])
-    axarr[1,2].axis('off')
-
-    person1[0,:,:,:] = Image.open('val_images/person1_0.png')
-    axarr[2,0].imshow(person1[0,:,:,:])
-    axarr[2,0].axis('off')
-    person1[1,:,:,:] = Image.open('val_images/person1_1.png')
-    axarr[2,1].imshow(person1[1,:,:,:])
-    axarr[2,1].axis('off')
-    person1[2,:,:,:] = Image.open('val_images/person1_2.png')
-    axarr[2,2].imshow(person1[2,:,:,:])
-    axarr[2,2].axis('off')
-
-    person2[0,:,:,:] = Image.open('val_images/person2_0.png')
-    axarr[3,0].imshow(person2[0,:,:,:])
-    axarr[3,0].axis('off')
-    person2[1,:,:,:] = Image.open('val_images/person2_1.png')
-    axarr[3,1].imshow(person2[1,:,:,:])
-    axarr[3,1].axis('off')
-    person2[2,:,:,:] = Image.open('val_images/person2_2.png')
-    axarr[3,2].imshow(person2[2,:,:,:])
-    axarr[3,2].axis('off')
-
-    plt.show(block=False)
-    plt.pause(5)
-    plt.close()
-
-    return bike0, person0, person1, person2
-
-
-
-
-
