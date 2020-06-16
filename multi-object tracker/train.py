@@ -34,11 +34,10 @@ def get_batch(images_file, labels_file, combination, image_size=128):
   Returns:
     Both resized bounding box images and there corresponding ids.
   """
-    # Batch always contains triplets.
-    batch_size = 3
-
     seq, pos_id, anc_frame, pos_frame, neg_id, neg_frame = combination
-    image_array = np.empty([batch_size, image_size, image_size, 3], dtype=np.uint8)
+
+    # Batch always contains triplets.
+    image_array = np.empty([3, image_size, image_size, 3], dtype=np.uint8)
 
     # Get the frame data.
     with h5py.File(images_file, 'r') as data:
