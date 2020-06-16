@@ -156,6 +156,26 @@ def train_model(model, detector, images_file, labels_file, epochs, learning_rate
     mot_accuracy_results = []
     mot_precision_results = []
     mot_switches_results = []
+    avg_cost_results = []
+
+    # Get metric data before training.
+    if detector:
+        tracker = MultiTrackNet(model)
+        MOT_metric, avg_cost = run_validation(tracker, detector, images_file, labels_file,
+                                              sequences_val, memory_length, memory_update,
+                                              max_distance)
+    else:
+        MOT_metric, avg_cost = run_validation(model, detector, images_file, labels_file,
+                                              sequences_val, memory_length, memory_update,
+                                              max_distance)
+    print("Epoch  -1:             Acc:{:.1%}, Precision:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
+        MOT_metric.get_MOTA(), MOT_metric.get_MOTP(),
+        avg_cost, MOT_metric.get_num_switches()))
+    mot_metric_epochs.append(-1)
+    mot_accuracy_results.append(MOT_metric.get_MOTA())
+    mot_precision_results.append(MOT_metric.get_MOTP())
+    mot_switches_results.append(MOT_metric.get_num_switches())
+    avg_cost_results.append(avg_cost)
 
     # Define the loss, optimizer and metric(s).
     loss_object = tfa.losses.TripletSemiHardLoss()
@@ -207,6 +227,7 @@ def train_model(model, detector, images_file, labels_file, epochs, learning_rate
             mot_accuracy_results.append(MOT_metric.get_MOTA())
             mot_precision_results.append(MOT_metric.get_MOTP())
             mot_switches_results.append(MOT_metric.get_num_switches())
+            avg_cost_results.append(avg_cost)
         else:
             # Print statistics without accuracy and precision
             print("Epoch {:03d}: Loss:{:.3f}".format(epoch, train_loss.result()))
@@ -214,23 +235,29 @@ def train_model(model, detector, images_file, labels_file, epochs, learning_rate
             # Append the results.
             train_loss_results.append(train_loss.result())
 
-    # Visualize the results of training.
-    fig, axes = plt.subplots(4, sharex=True, figsize=(7, 7))
-    fig.suptitle("Training Metrics", fontsize=14)
+    print('Training completed, exporting results.')
 
-    axes[0].set_ylabel("Loss", fontsize=12)
+    # Visualize the results of training.
+    fig, axes = plt.subplots(5, sharex=True, figsize=(14, 10))
+
+    axes[0].set_ylabel("Loss")
     axes[0].plot(train_loss_results)
 
-    axes[1].set_ylabel("Accuracy", fontsize=12)
+    axes[1].set_ylabel("Accuracy")
     axes[1].plot(mot_metric_epochs, mot_accuracy_results)
 
-    axes[2].set_ylabel("Precision", fontsize=12)
+    axes[2].set_ylabel("Precision")
     axes[2].plot(mot_metric_epochs, mot_precision_results)
 
-    axes[3].set_ylabel("Number of switches", fontsize=12)
-    axes[3].set_xlabel("Epoch", fontsize=12)
+    axes[3].set_ylabel("Number of switches")
     axes[3].plot(mot_metric_epochs, mot_switches_results)
-    plt.show()
+
+    axes[4].set_ylabel("Average cost")
+    axes[4].set_xlabel("Epoch")
+    axes[4].plot(mot_metric_epochs, avg_cost_results)
+
+    fig.savefig(save_directory + '/metrics.png', bbox_inches='tight')
+    plt.close
 
     # Save training metrics.
     np.savetxt(save_directory + '/train_loss.txt', train_loss_results)
@@ -238,6 +265,7 @@ def train_model(model, detector, images_file, labels_file, epochs, learning_rate
     np.savetxt(save_directory + '/mot_accuracy.txt', mot_accuracy_results)
     np.savetxt(save_directory + '/mot_precision.txt', mot_precision_results)
     np.savetxt(save_directory + '/mot_switches.txt', mot_switches_results)
+    np.savetxt(save_directory + '/avg_cost.txt', avg_cost_results)
 
     return model
 
@@ -272,7 +300,7 @@ class Settings:
 
     # Validation.
     detector = False
-    memory_length = 1
+    memory_length = 30
     memory_update = 0.75
     max_distance = 0.5
 
