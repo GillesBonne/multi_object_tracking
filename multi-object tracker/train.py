@@ -63,6 +63,11 @@ def get_batch(images_file, labels_file, combination, image_size=128):
     image_array[1, :, :, :] = resize_bb(positive_bb, image_size)
     image_array[2, :, :, :] = resize_bb(negative_bb, image_size)
 
+    # Make sure that the IDs are unique between sequences.
+    seq_num = ''.join(filter(str.isdigit, seq))
+    pos_id = int(seq_num+str(pos_id))
+    neg_id = int(seq_num+str(neg_id))
+
     label_array = np.array([pos_id, pos_id, neg_id])
 
     return image_array, label_array
