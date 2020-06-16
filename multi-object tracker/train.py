@@ -242,32 +242,13 @@ def train_model(model, detector, images_file, labels_file, epochs, learning_rate
     return model
 
 
-if __name__ == "__main__":
-    physical_devices = tf.config.list_physical_devices('GPU')
-    tf.config.experimental.set_memory_growth(physical_devices[0], True)
-
-    # Settings for the train process.
+class Settings:
     epochs = 1001
-    learning_rate = 0.1
-    l2_reg = 0.001  # L2 regularization
-    l2_norm = True  # L2 normalization
-
-    memory_length = 1
-    memory_update = 0.75
-    max_distance = 0.5
-
     window_size = 2
     num_combi_per_obj_per_epoch = 1
 
-    detector = False
+    dataset = 'kitti'
 
-    # Create unique folder for every training session.
-    now = datetime.datetime.now()
-    save_directory = 'saved_models/saved_model_' + now.strftime('%Y-%m-%d_%H-%M-%S')
-    Path(save_directory).mkdir(parents=True, exist_ok=True)
-
-    # Select the model and data.
-    model = TrackNet(padding='valid', use_bias=False, l2_reg=l2_reg, l2_norm=l2_norm)
     images_file = '../data/kitti_images.h5'
     labels_file = '../data/kitti_labels.bin'
 
@@ -275,27 +256,62 @@ if __name__ == "__main__":
     sequences_train = [12]
     sequences_val = [12]
     sequences_test = [12]
-    check_acceptable_splits('kitti', sequences_train, sequences_val, sequences_test,
-                            allow_overfit=True)
+    allow_overfit = True
 
-    # Save training parameters.
-    export_parameters(save_directory, learning_rate, l2_reg, l2_norm,
-                      memory_length, memory_update, max_distance,
-                      window_size, num_combi_per_obj_per_epoch,
-                      sequences_train, sequences_val, sequences_test)
+    # Learning rate: <= 0.01.
+    learning_rate = 0.01
 
-    print('Amount of combinations per epoch: ', len(get_combinations(
-        labels_file, sequences_train, window_size, num_combi_per_obj_per_epoch)))
+    # L2 regularization.
+    l2_reg = 0.001
+
+    # L2 normalization of output vector.
+    l2_norm = True
+
+    # Validation.
+    detector = False
+    memory_length = 1
+    memory_update = 0.75
+    max_distance = 0.5
 
     # Run validation every n epochs.
     val_epochs = 200
 
+
+if __name__ == "__main__":
+    physical_devices = tf.config.list_physical_devices('GPU')
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
+    # Settings for the train process.
+    settings = Settings()
+
+    # Create unique folder for every training session.
+    now = datetime.datetime.now()
+    save_directory = 'saved_models/saved_model_' + now.strftime('%Y-%m-%d_%H-%M-%S')
+    Path(save_directory).mkdir(parents=True, exist_ok=True)
+
+    # Select the model and data.
+    model = TrackNet(padding='valid', use_bias=False,
+                     l2_reg=settings.l2_reg, l2_norm=settings.l2_norm)
+
+    # Check if choosen split is acceptable.
+    check_acceptable_splits(settings.dataset, settings.sequences_train, settings.sequences_val, settings.sequences_test,
+                            allow_overfit=settings.allow_overfit)
+
+    # Save training parameters.
+    export_parameters(save_directory, settings.learning_rate, settings.l2_reg, settings.l2_norm,
+                      settings.memory_length, settings.memory_update, settings.max_distance,
+                      settings.window_size, settings.num_combi_per_obj_per_epoch,
+                      settings.sequences_train, settings.sequences_val, settings.sequences_test)
+
+    print('Amount of combinations per epoch: ', len(get_combinations(
+        settings.labels_file, settings.sequences_train, settings.window_size, settings.num_combi_per_obj_per_epoch)))
+
     # Train the model.
-    model = train_model(model, detector, images_file, labels_file,
-                        epochs, learning_rate,
-                        window_size, num_combi_per_obj_per_epoch,
-                        memory_length, memory_update, max_distance,
-                        sequences_train, sequences_val, val_epochs,
+    model = train_model(model, settings.detector, settings.images_file, settings.labels_file,
+                        settings.epochs, settings.learning_rate,
+                        settings.window_size, settings.num_combi_per_obj_per_epoch,
+                        settings.memory_length, settings.memory_update, settings.max_distance,
+                        settings.sequences_train, settings.sequences_val, settings.val_epochs,
                         save_directory)
 
     # Save the weights of the model.
@@ -303,22 +319,23 @@ if __name__ == "__main__":
     model.save_weights(model_path)
 
     # Load the previously saved weights.
-    new_model = TrackNet(padding='valid', use_bias=False, l2_reg=l2_reg, l2_norm=l2_norm)
+    new_model = TrackNet(padding='valid', use_bias=False,
+                         l2_reg=settings.l2_reg, l2_norm=settings.l2_norm)
     new_model.load_weights(model_path)
 
-    if detector:
+    if settings.detector:
         # Extend the re-identification model with detection.
         tracker = MultiTrackNet(new_model)
 
         # Run the validation with visualization.
-        MOT_metric, avg_cost = run_validation(tracker, detector, images_file, labels_file,
-                                              sequences_test, memory_length, memory_update, max_distance,
-                                              visual='re-id', visual_location=save_directory)
+        MOT_metric, avg_cost = run_validation(tracker, settings.detector, settings.images_file, settings.labels_file,
+                                              settings.sequences_test, settings.memory_length, settings.memory_update,
+                                              settings.max_distance, visual='re-id', visual_location=save_directory)
     else:
         # Run the validation with visualization.
-        MOT_metric, avg_cost = run_validation(new_model, detector, images_file, labels_file,
-                                              sequences_test, memory_length, memory_update, max_distance,
-                                              visual='re-id', visual_location=save_directory)
+        MOT_metric, avg_cost = run_validation(new_model, settings.detector, settings.images_file, settings.labels_file,
+                                              settings.sequences_test, settings.memory_length, settings.memory_update,
+                                              settings.max_distance, visual='re-id', visual_location=save_directory)
 
     # Print some of the statistics.
     print('\nTest results:')
