@@ -63,7 +63,7 @@ class EmbeddingsDatabase():
             for j, element in enumerate(self.database):
                 cost_matrix[i, j] = self.function(new_embedding, element[2])
 
-        # print(cost_matrix)
+        #print(cost_matrix)
 
         # Use the Hugarian algorithm for unique assignment of ids
         row_indices, col_indices = linear_sum_assignment(cost_matrix)
