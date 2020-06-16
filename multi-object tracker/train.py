@@ -243,9 +243,12 @@ def train_model(model, detector, images_file, labels_file, epochs, learning_rate
 
 
 class Settings:
-    epochs = 1001
+    epochs = 101
     window_size = 2
     num_combi_per_obj_per_epoch = 1
+
+    # Run validation every n epochs.
+    val_epochs = 20
 
     dataset = 'kitti'
 
@@ -272,9 +275,6 @@ class Settings:
     memory_length = 1
     memory_update = 0.75
     max_distance = 0.5
-
-    # Run validation every n epochs.
-    val_epochs = 200
 
 
 if __name__ == "__main__":
