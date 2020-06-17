@@ -34,11 +34,10 @@ def get_batch(images_file, labels_file, combination, image_size=128):
   Returns:
     Both resized bounding box images and there corresponding ids.
   """
-    # Batch always contains triplets.
-    batch_size = 3
-
     seq, pos_id, anc_frame, pos_frame, neg_id, neg_frame = combination
-    image_array = np.empty([batch_size, image_size, image_size, 3], dtype=np.uint8)
+
+    # Batch always contains triplets.
+    image_array = np.empty([3, image_size, image_size, 3], dtype=np.uint8)
 
     # Get the frame data.
     with h5py.File(images_file, 'r') as data:
@@ -63,6 +62,11 @@ def get_batch(images_file, labels_file, combination, image_size=128):
     image_array[0, :, :, :] = resize_bb(anchor_bb, image_size)
     image_array[1, :, :, :] = resize_bb(positive_bb, image_size)
     image_array[2, :, :, :] = resize_bb(negative_bb, image_size)
+
+    # Make sure that the IDs are unique between sequences.
+    seq_num = ''.join(filter(str.isdigit, seq))
+    pos_id = int(seq_num+str(pos_id))
+    neg_id = int(seq_num+str(neg_id))
 
     label_array = np.array([pos_id, pos_id, neg_id])
 
@@ -152,6 +156,26 @@ def train_model(model, detector, images_file, labels_file, epochs, learning_rate
     mot_accuracy_results = []
     mot_precision_results = []
     mot_switches_results = []
+    avg_cost_results = []
+
+    # Get metric data before training.
+    if detector:
+        tracker = MultiTrackNet(model)
+        MOT_metric, avg_cost = run_validation(tracker, detector, images_file, labels_file,
+                                              sequences_val, memory_length, memory_update,
+                                              max_distance)
+    else:
+        MOT_metric, avg_cost = run_validation(model, detector, images_file, labels_file,
+                                              sequences_val, memory_length, memory_update,
+                                              max_distance)
+    print("Epoch  -1:             Acc:{:.1%}, Precision:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
+        MOT_metric.get_MOTA(), MOT_metric.get_MOTP(),
+        avg_cost, MOT_metric.get_num_switches()))
+    mot_metric_epochs.append(-1)
+    mot_accuracy_results.append(MOT_metric.get_MOTA())
+    mot_precision_results.append(MOT_metric.get_MOTP())
+    mot_switches_results.append(MOT_metric.get_num_switches())
+    avg_cost_results.append(avg_cost)
 
     # Define the loss, optimizer and metric(s).
     loss_object = tfa.losses.TripletSemiHardLoss()
@@ -203,6 +227,7 @@ def train_model(model, detector, images_file, labels_file, epochs, learning_rate
             mot_accuracy_results.append(MOT_metric.get_MOTA())
             mot_precision_results.append(MOT_metric.get_MOTP())
             mot_switches_results.append(MOT_metric.get_num_switches())
+            avg_cost_results.append(avg_cost)
         else:
             # Print statistics without accuracy and precision
             print("Epoch {:03d}: Loss:{:.3f}".format(epoch, train_loss.result()))
@@ -210,23 +235,29 @@ def train_model(model, detector, images_file, labels_file, epochs, learning_rate
             # Append the results.
             train_loss_results.append(train_loss.result())
 
-    # Visualize the results of training.
-    fig, axes = plt.subplots(4, sharex=True, figsize=(7, 7))
-    fig.suptitle("Training Metrics", fontsize=14)
+    print('Training completed, exporting results.')
 
-    axes[0].set_ylabel("Loss", fontsize=12)
+    # Visualize the results of training.
+    fig, axes = plt.subplots(5, sharex=True, figsize=(14, 10))
+
+    axes[0].set_ylabel("Loss")
     axes[0].plot(train_loss_results)
 
-    axes[1].set_ylabel("Accuracy", fontsize=12)
+    axes[1].set_ylabel("Accuracy")
     axes[1].plot(mot_metric_epochs, mot_accuracy_results)
 
-    axes[2].set_ylabel("Precision", fontsize=12)
+    axes[2].set_ylabel("Precision")
     axes[2].plot(mot_metric_epochs, mot_precision_results)
 
-    axes[3].set_ylabel("Number of switches", fontsize=12)
-    axes[3].set_xlabel("Epoch", fontsize=12)
+    axes[3].set_ylabel("Number of switches")
     axes[3].plot(mot_metric_epochs, mot_switches_results)
-    plt.show()
+
+    axes[4].set_ylabel("Average cost")
+    axes[4].set_xlabel("Epoch")
+    axes[4].plot(mot_metric_epochs, avg_cost_results)
+
+    fig.savefig(save_directory + '/metrics.png', bbox_inches='tight')
+    plt.close
 
     # Save training metrics.
     np.savetxt(save_directory + '/train_loss.txt', train_loss_results)
@@ -234,36 +265,21 @@ def train_model(model, detector, images_file, labels_file, epochs, learning_rate
     np.savetxt(save_directory + '/mot_accuracy.txt', mot_accuracy_results)
     np.savetxt(save_directory + '/mot_precision.txt', mot_precision_results)
     np.savetxt(save_directory + '/mot_switches.txt', mot_switches_results)
+    np.savetxt(save_directory + '/avg_cost.txt', avg_cost_results)
 
     return model
 
 
-if __name__ == "__main__":
-    physical_devices = tf.config.list_physical_devices('GPU')
-    tf.config.experimental.set_memory_growth(physical_devices[0], True)
-
-    # Settings for the train process.
-    epochs = 1001
-    learning_rate = 0.1
-    l2_reg = 0.001  # L2 regularization
-    l2_norm = True  # L2 normalization
-
-    memory_length = 1
-    memory_update = 0.75
-    max_distance = 0.5
-
+class Settings:
+    epochs = 101
     window_size = 2
     num_combi_per_obj_per_epoch = 1
 
-    detector = False
+    # Run validation every n epochs.
+    val_epochs = 20
 
-    # Create unique folder for every training session.
-    now = datetime.datetime.now()
-    save_directory = 'saved_models/saved_model_' + now.strftime('%Y-%m-%d_%H-%M-%S')
-    Path(save_directory).mkdir(parents=True, exist_ok=True)
+    dataset = 'kitti'
 
-    # Select the model and data.
-    model = TrackNet(padding='valid', use_bias=False, l2_reg=l2_reg, l2_norm=l2_norm)
     images_file = '../data/kitti_images.h5'
     labels_file = '../data/kitti_labels.bin'
 
@@ -271,27 +287,59 @@ if __name__ == "__main__":
     sequences_train = [12]
     sequences_val = [12]
     sequences_test = [12]
-    check_acceptable_splits('kitti', sequences_train, sequences_val, sequences_test,
-                            allow_overfit=True)
+    allow_overfit = True
+
+    # Learning rate: <= 0.01.
+    learning_rate = 0.01
+
+    # L2 regularization.
+    l2_reg = 0.001
+
+    # L2 normalization of output vector.
+    l2_norm = True
+
+    # Validation.
+    detector = False
+    memory_length = 30
+    memory_update = 0.75
+    max_distance = 0.5
+
+
+if __name__ == "__main__":
+    physical_devices = tf.config.list_physical_devices('GPU')
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
+    # Settings for the train process.
+    settings = Settings()
+
+    # Create unique folder for every training session.
+    now = datetime.datetime.now()
+    save_directory = 'saved_models/saved_model_' + now.strftime('%Y-%m-%d_%H-%M-%S')
+    Path(save_directory).mkdir(parents=True, exist_ok=True)
+
+    # Select the model and data.
+    model = TrackNet(padding='valid', use_bias=False,
+                     l2_reg=settings.l2_reg, l2_norm=settings.l2_norm)
+
+    # Check if choosen split is acceptable.
+    check_acceptable_splits(settings.dataset, settings.sequences_train, settings.sequences_val, settings.sequences_test,
+                            allow_overfit=settings.allow_overfit)
 
     # Save training parameters.
-    export_parameters(save_directory, learning_rate, l2_reg, l2_norm,
-                      memory_length, memory_update, max_distance,
-                      window_size, num_combi_per_obj_per_epoch,
-                      sequences_train, sequences_val, sequences_test)
+    export_parameters(save_directory, settings.learning_rate, settings.l2_reg, settings.l2_norm,
+                      settings.memory_length, settings.memory_update, settings.max_distance,
+                      settings.window_size, settings.num_combi_per_obj_per_epoch,
+                      settings.sequences_train, settings.sequences_val, settings.sequences_test)
 
     print('Amount of combinations per epoch: ', len(get_combinations(
-        labels_file, sequences_train, window_size, num_combi_per_obj_per_epoch)))
-
-    # Run validation every n epochs.
-    val_epochs = 200
+        settings.labels_file, settings.sequences_train, settings.window_size, settings.num_combi_per_obj_per_epoch)))
 
     # Train the model.
-    model = train_model(model, detector, images_file, labels_file,
-                        epochs, learning_rate,
-                        window_size, num_combi_per_obj_per_epoch,
-                        memory_length, memory_update, max_distance,
-                        sequences_train, sequences_val, val_epochs,
+    model = train_model(model, settings.detector, settings.images_file, settings.labels_file,
+                        settings.epochs, settings.learning_rate,
+                        settings.window_size, settings.num_combi_per_obj_per_epoch,
+                        settings.memory_length, settings.memory_update, settings.max_distance,
+                        settings.sequences_train, settings.sequences_val, settings.val_epochs,
                         save_directory)
 
     # Save the weights of the model.
@@ -299,22 +347,23 @@ if __name__ == "__main__":
     model.save_weights(model_path)
 
     # Load the previously saved weights.
-    new_model = TrackNet(padding='valid', use_bias=False, l2_reg=l2_reg, l2_norm=l2_norm)
+    new_model = TrackNet(padding='valid', use_bias=False,
+                         l2_reg=settings.l2_reg, l2_norm=settings.l2_norm)
     new_model.load_weights(model_path)
 
-    if detector:
+    if settings.detector:
         # Extend the re-identification model with detection.
         tracker = MultiTrackNet(new_model)
 
         # Run the validation with visualization.
-        MOT_metric, avg_cost = run_validation(tracker, detector, images_file, labels_file,
-                                              sequences_test, memory_length, memory_update, max_distance,
-                                              visual='re-id', visual_location=save_directory)
+        MOT_metric, avg_cost = run_validation(tracker, settings.detector, settings.images_file, settings.labels_file,
+                                              settings.sequences_test, settings.memory_length, settings.memory_update,
+                                              settings.max_distance, visual='re-id', visual_location=save_directory)
     else:
         # Run the validation with visualization.
-        MOT_metric, avg_cost = run_validation(new_model, detector, images_file, labels_file,
-                                              sequences_test, memory_length, memory_update, max_distance,
-                                              visual='re-id', visual_location=save_directory)
+        MOT_metric, avg_cost = run_validation(new_model, settings.detector, settings.images_file, settings.labels_file,
+                                              settings.sequences_test, settings.memory_length, settings.memory_update,
+                                              settings.max_distance, visual='re-id', visual_location=save_directory)
 
     # Print some of the statistics.
     print('\nTest results:')
