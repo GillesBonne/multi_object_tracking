@@ -16,11 +16,12 @@ from data import get_combinations
 from embeds import EmbeddingsDatabase
 from eval import MOTMetric
 from model import TrackNet
-from model_v2 import TrackNetV2
 from model_extension import MultiTrackNet
-from utils import (check_acceptable_splits, export_parameters, resize_bb,
-                   show_frame_with_ids, show_frame_with_labels, slice_image,
-                   get_embeddings, load_overfit_bboxes, show_overfit_statistics)
+from model_v2 import TrackNetV2
+from utils import (check_acceptable_splits, export_parameters, get_embeddings,
+                   load_overfit_bboxes, resize_bb, show_frame_with_ids,
+                   show_frame_with_labels, show_overfit_statistics,
+                   slice_image)
 
 
 def get_batch(images_file, labels_file, combination, image_size=128):
@@ -143,13 +144,10 @@ def train_model(model, settings, save_directory):
     epochs: Number of epochs to train for
     learning_rate: Learning rate of the optimizer
   """
-    print('Training the model for {} epochs...'.format(settings.epochs))
-
     # Create empty list for the metrics.
     train_loss_results = []
     mot_metric_epochs = []
     mot_accuracy_results = []
-    mot_precision_results = []
     mot_switches_results = []
     avg_cost_results = []
 
@@ -159,13 +157,18 @@ def train_model(model, settings, save_directory):
         MOT_metric, avg_cost = run_validation(tracker, settings)
     else:
         MOT_metric, avg_cost = run_validation(model, settings)
-    
-    print("Epoch -001: Acc:{:.1%}, Precision:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
-                MOT_metric.get_MOTA(), MOT_metric.get_MOTP(), avg_cost, MOT_metric.get_num_switches()))
-    
+
+    print('\nTraining the model for {} epochs...'.format(settings.epochs))
+
+    print('\nAmount of combinations per epoch: {}.'.format(len(get_combinations(
+        settings.labels_file, settings.sequences_train, settings.window_size,
+        settings.num_combi_per_obj_per_epoch))))
+
+    print("\nEpoch  -1: Acc:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
+        MOT_metric.get_MOTA(), avg_cost, MOT_metric.get_num_switches()))
+
     mot_metric_epochs.append(-1)
     mot_accuracy_results.append(MOT_metric.get_MOTA())
-    mot_precision_results.append(MOT_metric.get_MOTP())
     mot_switches_results.append(MOT_metric.get_num_switches())
     avg_cost_results.append(avg_cost)
 
@@ -174,11 +177,11 @@ def train_model(model, settings, save_directory):
     optimizer = tf.keras.optimizers.Adam(learning_rate=settings.learning_rate)
     train_loss = tf.keras.metrics.Mean()
 
-    # Load the overfit bounding boxes and show them
+    # Load the overfit bounding boxes and show them.
     # bboxes = load_overfit_bboxes()
     # show_overfit_statistics(model, bboxes)
 
-    # Create empty array for image and label batch
+    # Create empty array for image and label batch.
     triplet_batch = settings.triplet_batch
     image_batch = np.empty((triplet_batch*3, 128, 128, 3), dtype=np.uint8)
     label_batch = np.empty((triplet_batch*3), dtype=np.float32)
@@ -187,7 +190,7 @@ def train_model(model, settings, save_directory):
     for epoch in range(settings.epochs):
         # Get all bouding box combinations for this sequence.
         combinations = get_combinations(settings.labels_file, settings.sequences_train,
-                                settings.window_size, settings.num_combi_per_obj_per_epoch)
+                                        settings.window_size, settings.num_combi_per_obj_per_epoch)
 
         length = len(combinations)
         for idx in range(0, length, triplet_batch):
@@ -195,7 +198,7 @@ def train_model(model, settings, save_directory):
 
             for i, comb in enumerate(batch):
                 images, labels = get_batch(settings.images_file, settings.labels_file, comb)
-                image_batch[i*3:i*3+3,:,:,:] = images
+                image_batch[i*3:i*3+3, :, :, :] = images
                 label_batch[i*3:i*3+3] = labels
 
             with tf.GradientTape() as tape:
@@ -209,10 +212,11 @@ def train_model(model, settings, save_directory):
             # Track progress.
             train_loss.update_state(loss)
 
-        # Show statistics of the training process
-        print("\nEpoch {:03d}: Loss:{:.3f}".format(epoch, train_loss.result()))
+        # Show statistics of the training process.
+        print("Epoch {:03d}: Loss:{:.3f}".format(epoch, train_loss.result()))
+
         # show_overfit_statistics(model, bboxes)
-# 
+
         # Append the results.
         train_loss_results.append(train_loss.result())
 
@@ -224,24 +228,20 @@ def train_model(model, settings, save_directory):
             else:
                 MOT_metric, avg_cost = run_validation(model, settings)
 
-            # Print statistics with accuracy and precision
-            print("Epoch {:03d}: Loss:{:.3f}, Acc:{:.1%}, Precision:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
-                epoch, train_loss.result(),
-                MOT_metric.get_MOTA(), MOT_metric.get_MOTP(),
-                avg_cost, MOT_metric.get_num_switches()))
+            # Print statistics with accuracy and precision.
+            print("Epoch {:03d}: Loss:{:.3f}, Acc:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
+                epoch, train_loss.result(), MOT_metric.get_MOTP(), avg_cost, MOT_metric.get_num_switches()))
 
-            # Append the results
+            # Append the results.
             mot_metric_epochs.append(epoch)
             mot_accuracy_results.append(MOT_metric.get_MOTA())
-            mot_precision_results.append(MOT_metric.get_MOTP())
             mot_switches_results.append(MOT_metric.get_num_switches())
             avg_cost_results.append(avg_cost)
 
-
-    print('Training completed, exporting results.')
+    print('\nTraining completed, exporting results.')
 
     # Visualize the results of training.
-    fig, axes = plt.subplots(5, sharex=True, figsize=(14, 10))
+    fig, axes = plt.subplots(4, sharex=True, figsize=(14, 10))
 
     axes[0].set_ylabel("Loss")
     axes[0].plot(train_loss_results)
@@ -249,24 +249,20 @@ def train_model(model, settings, save_directory):
     axes[1].set_ylabel("Accuracy")
     axes[1].plot(mot_metric_epochs, mot_accuracy_results)
 
-    axes[2].set_ylabel("Precision")
-    axes[2].plot(mot_metric_epochs, mot_precision_results)
+    axes[2].set_ylabel("Number of switches")
+    axes[2].plot(mot_metric_epochs, mot_switches_results)
 
-    axes[3].set_ylabel("Number of switches")
-    axes[3].plot(mot_metric_epochs, mot_switches_results)
-
-    axes[4].set_ylabel("Average cost")
-    axes[4].set_xlabel("Epoch")
-    axes[4].plot(mot_metric_epochs, avg_cost_results)
+    axes[3].set_ylabel("Average cost")
+    axes[3].set_xlabel("Epoch")
+    axes[3].plot(mot_metric_epochs, avg_cost_results)
 
     fig.savefig(save_directory + '/metrics.png', bbox_inches='tight')
-    plt.close
+    plt.close()
 
     # Save training metrics.
     np.savetxt(save_directory + '/train_loss.txt', train_loss_results)
     np.savetxt(save_directory + '/mot_epochs.txt', mot_metric_epochs)
     np.savetxt(save_directory + '/mot_accuracy.txt', mot_accuracy_results)
-    np.savetxt(save_directory + '/mot_precision.txt', mot_precision_results)
     np.savetxt(save_directory + '/mot_switches.txt', mot_switches_results)
     np.savetxt(save_directory + '/avg_cost.txt', avg_cost_results)
 
@@ -275,27 +271,26 @@ def train_model(model, settings, save_directory):
 
 class Settings:
     """Class for the settings of the train process."""
-    # Settings for the train process.
-    epochs = 100
-    learning_rate = 0.001  # Should be smaller or equal 0.01
-    l2_reg = 0.0001  # L2 regularization
-    use_dropout = False 
+    epochs = 21
+    learning_rate = 0.001  # Should be smaller or equal than 0.01.
+    l2_reg = 0.0001
+    use_dropout = False
 
-    # Settings for the dataset and triplets
+    # Settings for the dataset and triplets.
     dataset = 'kitti'
     images_file = '../data/kitti_images.h5'
     labels_file = '../data/kitti_labels.bin'
 
-    sequences_train = [12]  # Sequences for training
-    sequences_val = [12]  # Sequences for validation
-    sequences_test = [12]  # Sequences for testing
+    sequences_train = [12]
+    sequences_val = [12]
+    sequences_test = [12]
     allow_overfit = True
-    
+
     window_size = 3
     num_combi_per_obj_per_epoch = 10
-    triplet_batch = 8  # Number of triplets in one batch
+    triplet_batch = 8  # Number of triplets in one batch.
 
-    # Settings for the validation run
+    # Settings for the validation run.
     detector = False
     memory_length = 30
     memory_update = 0.75
@@ -303,7 +298,7 @@ class Settings:
 
     # Run validation every n epochs.
     val_epochs = 20
-    
+
 
 if __name__ == "__main__":
     physical_devices = tf.config.list_physical_devices('GPU')
@@ -321,15 +316,11 @@ if __name__ == "__main__":
     model = TrackNet(use_bias=False, l2_reg=settings.l2_reg, use_dropout=settings.use_dropout)
 
     # Check if choosen split is acceptable.
-    check_acceptable_splits(settings.dataset, settings.sequences_train, settings.sequences_val, 
-            settings.sequences_test, allow_overfit=settings.allow_overfit)
+    check_acceptable_splits(settings.dataset, settings.sequences_train, settings.sequences_val,
+                            settings.sequences_test, allow_overfit=settings.allow_overfit)
 
     # Save training parameters.
     export_parameters(save_directory, settings)
-
-    print('Amount of combinations per epoch: ', len(get_combinations(
-        settings.labels_file, settings.sequences_train, settings.window_size, 
-        settings.num_combi_per_obj_per_epoch)))
 
     # Train the model.
     model = train_model(model, settings, save_directory)
@@ -345,17 +336,18 @@ if __name__ == "__main__":
     if settings.detector:
         # Extend the re-identification model with detection.
         tracker = MultiTrackNet(new_model)
-        
+
         # Run the validation with visualization.
-        MOT_metric, avg_cost = run_validation(tracker, settings, visual='re-id', visual_location=save_directory)
+        MOT_metric, avg_cost = run_validation(
+            tracker, settings, visual='re-id', visual_location=save_directory)
     else:
         # Run the validation with visualization.
-        MOT_metric, avg_cost = run_validation(new_model, settings, visual='re-id', visual_location=save_directory)
+        MOT_metric, avg_cost = run_validation(
+            new_model, settings, visual='re-id', visual_location=save_directory)
 
     # Print some of the statistics.
     print('\nTest results:')
     print('Multi-object tracking accuracy: {:.1%}'.format(MOT_metric.get_MOTA()))
-    print('Multi-object tracking precision: {:.1%}'.format(MOT_metric.get_MOTP()))
     print('Multi-object tracking switches: {}'.format(MOT_metric.get_num_switches()))
     print('Multi-object tracking avg embed cost: {:.3f}'.format(avg_cost))
     print('Multi-object detection precision: {:.1%}'.format(MOT_metric.get_precision()))
