@@ -16,10 +16,11 @@ from data import get_combinations
 from embeds import EmbeddingsDatabase
 from eval import MOTMetric
 from model import TrackNet
+from model_v2 import TrackNetV2
 from model_extension import MultiTrackNet
 from utils import (check_acceptable_splits, export_parameters, resize_bb,
                    show_frame_with_ids, show_frame_with_labels, slice_image,
-                   get_embeddings, calc_distance, load_overfit_bboxes)
+                   get_embeddings, load_overfit_bboxes, show_overfit_statistics)
 
 
 def get_batch(images_file, labels_file, combination, image_size=128):
@@ -134,7 +135,7 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
                 window_size, num_combi_per_obj_per_epoch,
                 memory_length, memory_update, max_distance,
                 sequences_train, sequences_val, val_epochs,
-                save_directory):
+                save_directory, triplet_batch):
     """Create training loop for the object tracker model.
 
   Args:
@@ -154,12 +155,17 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
     mot_switches_results = []
 
     # Define the loss, optimizer and metric(s).
-    loss_object = tfa.losses.TripletSemiHardLoss()
+    loss_object = tfa.losses.TripletSemiHardLoss(margin=2.0)
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
     train_loss = tf.keras.metrics.Mean()
 
-    # Load the validation images and show them
-    bike0, person0, person1, person2 = load_overfit_bboxes()
+    # Load the overfit bounding boxes and show them
+    bboxes = load_overfit_bboxes()
+    show_overfit_statistics(model, bboxes)
+
+    # Create empty array for image and label batch
+    image_batch = np.empty((triplet_batch*3, 128, 128, 3), dtype=np.uint8)
+    label_batch = np.empty((triplet_batch*3), dtype=np.float32)
 
     # Training loop.
     for epoch in range(epochs):
@@ -167,12 +173,18 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
         combinations = get_combinations(labels_file, sequences_train,
                                         window_size, num_combi_per_obj_per_epoch)
 
-        for combination in combinations:
-            images, labels = get_batch(images_file, labels_file, combination)
+        length = len(combinations)
+        for idx in range(0, length, triplet_batch):
+            batch = combinations[idx:min(idx+triplet_batch, length)]
+
+            for i, comb in enumerate(batch):
+                images, labels = get_batch(images_file, labels_file, comb)
+                image_batch[i*3:i*3+3,:,:,:] = images
+                label_batch[i*3:i*3+3] = labels
 
             with tf.GradientTape() as tape:
-                embeddings = model(images, training=True)
-                loss = loss_object(labels, embeddings)
+                embeddings = model(image_batch, training=True)
+                loss = loss_object(y_true=label_batch, y_pred=embeddings)
                 loss += sum(model.losses)  # Add the L2 regularization loss
 
             gradients = tape.gradient(loss, model.trainable_variables)
@@ -183,50 +195,27 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
 
         # Show statistics of the training process
         print("\nEpoch {:03d}: Loss:{:.3f}".format(epoch, train_loss.result()))
-        
-        bike0_ = model(bike0)
-        pos_distance = calc_distance(bike0_[0], bike0_[1])
-        neg_distance = calc_distance(bike0_[0], bike0_[2])
-        print("Bike0: Positive:{:.3f}, Negative:{:.3f}, Diff:{:.3f}".format(
-            pos_distance, neg_distance, abs(pos_distance-neg_distance)))
-
-        person0_ = model(person0)
-        pos_distance = calc_distance(person0_[0], person0_[1])
-        neg_distance = calc_distance(person0_[0], person0_[2])
-        print("Person0: Positive:{:.3f}, Negative:{:.3f}, Diff:{:.3f}".format(
-            pos_distance, neg_distance, abs(pos_distance-neg_distance)))
-
-        person1_ = model(person1)
-        pos_distance = calc_distance(person1_[0], person1_[1])
-        neg_distance = calc_distance(person1_[0], person1_[2])
-        print("Person1: Positive:{:.3f}, Negative:{:.3f}, Diff:{:.3f}".format(
-            pos_distance, neg_distance, abs(pos_distance-neg_distance)))
-
-        person2_ = model(person2)
-        pos_distance = calc_distance(person2_[0], person2_[1])
-        neg_distance = calc_distance(person2_[0], person2_[2])
-        print("Person2: Positive:{:.3f}, Negative:{:.3f}, Diff:{:.3f}".format(
-            pos_distance, neg_distance, abs(pos_distance-neg_distance)))
-
+        show_overfit_statistics(model, bboxes)
+# 
         # Append the results.
         train_loss_results.append(train_loss.result())
 
-        if epoch % val_epochs == 0:
-            # Run validation program on sequence and get score.
-            tracker = MultiTrackNet(model)
-            MOT_metric, avg_cost = run_validation(tracker, images_file, labels_file,
-                                                  sequences_val, memory_length, memory_update, max_distance)
+        # if epoch % val_epochs == 0:
+        #     # Run validation program on sequence and get score.
+        #     tracker = MultiTrackNet(model)
+        #     MOT_metric, avg_cost = run_validation(tracker, images_file, labels_file,
+        #                                           sequences_val, memory_length, memory_update, max_distance)
 
-            # Print statistics with accuracy and precision
-            print("Acc:{:.1%}, Precision:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
-                MOT_metric.get_MOTA(), MOT_metric.get_MOTP(),
-                avg_cost, MOT_metric.get_num_switches()))
+        #     # Print statistics with accuracy and precision
+        #     print("Acc:{:.1%}, Precision:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
+        #         MOT_metric.get_MOTA(), MOT_metric.get_MOTP(),
+        #         avg_cost, MOT_metric.get_num_switches()))
 
-            # Append the results
-            mot_metric_epochs.append(epoch)
-            mot_accuracy_results.append(MOT_metric.get_MOTA())
-            mot_precision_results.append(MOT_metric.get_MOTP())
-            mot_switches_results.append(MOT_metric.get_num_switches())
+        #     # Append the results
+        #     mot_metric_epochs.append(epoch)
+        #     mot_accuracy_results.append(MOT_metric.get_MOTA())
+        #     mot_precision_results.append(MOT_metric.get_MOTP())
+        #     mot_switches_results.append(MOT_metric.get_num_switches())
 
     # Visualize the results of training.
     fig, axes = plt.subplots(4, sharex=True, figsize=(7, 7))
@@ -257,14 +246,13 @@ def train_model(model, images_file, labels_file, epochs, learning_rate,
 
 
 if __name__ == "__main__":
-    physical_devices = tf.config.list_physical_devices('GPU')
-    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    # physical_devices = tf.config.list_physical_devices('GPU')
+    # tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
     # Settings for the train process.
     epochs = 100
     learning_rate = 0.001
     l2_reg = 0.0001  # L2 regularization
-    l2_norm = True  # L2 normalization
 
     memory_length = 30
     memory_update = 0.75
@@ -272,6 +260,7 @@ if __name__ == "__main__":
 
     window_size = 3
     num_combi_per_obj_per_epoch = 10
+    triplet_batch = 8  # Number of triplets in one batch
 
     # Create unique folder for every training session.
     now = datetime.datetime.now()
@@ -279,7 +268,7 @@ if __name__ == "__main__":
     Path(save_directory).mkdir(parents=True, exist_ok=True)
 
     # Select the model and data.
-    model = TrackNet(padding='valid', use_bias=False, l2_reg=l2_reg, l2_norm=l2_norm)
+    model = TrackNet(use_bias=False, l2_reg=l2_reg, use_dropout=True)
     images_file = '../data/kitti_images.h5'
     labels_file = '../data/kitti_labels.bin'
 
@@ -291,7 +280,7 @@ if __name__ == "__main__":
                             allow_overfit=True)
 
     # Save training parameters.
-    export_parameters(save_directory, learning_rate, l2_reg, l2_norm,
+    export_parameters(save_directory, learning_rate, l2_reg,
                       memory_length, memory_update, max_distance,
                       window_size, num_combi_per_obj_per_epoch,
                       sequences_train, sequences_val, sequences_test)
@@ -301,22 +290,19 @@ if __name__ == "__main__":
 
     # Run validation every n epochs.
     val_epochs = 100
-
-    # Train the model.
     model = train_model(model, images_file, labels_file,
                         epochs, learning_rate,
                         window_size, num_combi_per_obj_per_epoch,
                         memory_length, memory_update, max_distance,
                         sequences_train, sequences_val, val_epochs,
-                        save_directory)
+                        save_directory, triplet_batch)
 
     # Save the weights of the model.
-    save_directory = 'saved_models/saved_model_2020-06-14_14-22-08'
     model_path = save_directory + '/saved_model.ckpt'
     model.save_weights(model_path)
 
     # Load the previously saved weights.
-    new_model = TrackNet(padding='valid', use_bias=False, l2_reg=l2_reg, l2_norm=l2_norm)
+    new_model = TrackNet(use_bias=False, l2_reg=l2_reg, use_dropout=True)
     new_model.load_weights(model_path)
 
     # Extend the re-identification model with detection.

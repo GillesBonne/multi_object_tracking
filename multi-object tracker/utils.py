@@ -146,7 +146,7 @@ def check_acceptable_splits(dataset, train, val, test, allow_overfit):
         raise ValueError('Function not defined for this dataset. The available dataset is: kitti')
 
 
-def export_parameters(save_directory, learning_rate, l2_reg, l2_norm,
+def export_parameters(save_directory, learning_rate, l2_reg,
                       memory_length, memory_update, max_distance,
                       window_size, num_combi_per_obj_per_epoch,
                       sequences_train, sequences_val, sequences_test):
@@ -154,8 +154,6 @@ def export_parameters(save_directory, learning_rate, l2_reg, l2_norm,
         file.write('learning rate: '+str(learning_rate))
         file.write('\n')
         file.write('l2 reg: '+str(l2_reg))
-        file.write('\n')
-        file.write('l2 norm: '+str(l2_norm))
         file.write('\n')
         file.write('memory length: '+str(memory_length))
         file.write('\n')
@@ -225,10 +223,39 @@ def load_overfit_bboxes():
     axarr[3,2].axis('off')
 
     plt.show(block=False)
-    plt.pause(5)
+    plt.pause(0.1)
     plt.close()
 
     return bike0, person0, person1, person2
+
+def show_overfit_statistics(model, bboxes):
+    """Show the statistics for the overfit bounding boxes."""
+    (bike0, person0, person1, person2) = bboxes
+
+    bike0_ = model(bike0)
+    pos_distance = calc_distance(bike0_[0], bike0_[1])
+    neg_distance = calc_distance(bike0_[0], bike0_[2])
+    print("Bike0: Positive:{:.3f}, Negative:{:.3f}, Diff:{:.3f}".format(
+        pos_distance, neg_distance, abs(pos_distance-neg_distance)))
+
+    person0_ = model(person0)
+    pos_distance = calc_distance(person0_[0], person0_[1])
+    neg_distance = calc_distance(person0_[0], person0_[2])
+    print("Person0: Positive:{:.3f}, Negative:{:.3f}, Diff:{:.3f}".format(
+        pos_distance, neg_distance, abs(pos_distance-neg_distance)))
+
+    person1_ = model(person1)
+    pos_distance = calc_distance(person1_[0], person1_[1])
+    neg_distance = calc_distance(person1_[0], person1_[2])
+    print("Person1: Positive:{:.3f}, Negative:{:.3f}, Diff:{:.3f}".format(
+        pos_distance, neg_distance, abs(pos_distance-neg_distance)))
+
+    person2_ = model(person2)
+    pos_distance = calc_distance(person2_[0], person2_[1])
+    neg_distance = calc_distance(person2_[0], person2_[2])
+    print("Person2: Positive:{:.3f}, Negative:{:.3f}, Diff:{:.3f}".format(
+        pos_distance, neg_distance, abs(pos_distance-neg_distance)))
+
 
 
 
