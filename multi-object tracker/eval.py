@@ -88,6 +88,20 @@ class MOTMetric():
                                            metrics='recall', return_dataframe=False)
         return summary['recall']
 
+    def get_num_switches_norm(self):
+        """Return normalized number of switches."""
+        summary = self.metric_host.compute(
+            self.accumulator, metrics='num_switches', return_dataframe=False)
+        num_switches = summary['num_switches']
+
+        summary = self.metric_host.compute(
+            self.accumulator, metrics='obj_frequencies', return_dataframe=False)
+        obj_frequencies = summary['obj_frequencies']
+
+        num_switches_norm = num_switches/((obj_frequencies-1).sum())
+
+        return num_switches_norm
+
     def get_metric(self, metric_list):
         """Return the Multi Object Tracking metrics defined in 'metric_list'."""
         summary = self.metric_host.compute(self.accumulator,

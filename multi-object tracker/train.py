@@ -173,6 +173,7 @@ def train_model(model, settings, save_directory):
     mot_metric_epochs = []
     mot_accuracy_results = []
     mot_switches_results = []
+    mot_switches_norm_results = []
     avg_cost_results = []
 
     # Get metric data before training.
@@ -188,12 +189,13 @@ def train_model(model, settings, save_directory):
         settings.labels_file, settings.sequences_train, settings.window_size,
         settings.num_combi_per_obj_per_epoch))))
 
-    print("\nEpoch  -1:             Acc:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
-        MOT_metric.get_MOTA(), avg_cost, MOT_metric.get_num_switches()))
+    print("\nEpoch  -1:             Acc:{:.1%}, Avg embed cost:{:.3f}, Norm Switches:{:.3f}".format(
+        MOT_metric.get_MOTA(), avg_cost, MOT_metric.get_num_switches_norm()))
 
     mot_metric_epochs.append(-1)
     mot_accuracy_results.append(MOT_metric.get_MOTA())
     mot_switches_results.append(MOT_metric.get_num_switches())
+    mot_switches_norm_results.append(MOT_metric.get_num_switches_norm())
     avg_cost_results.append(avg_cost)
 
     # Define the loss, optimizer and metric(s).
@@ -250,13 +252,14 @@ def train_model(model, settings, save_directory):
                 MOT_metric, avg_cost = run_validation(model, settings)
 
             # Print statistics with accuracy and switches.
-            print("Epoch {:03d}: Loss:{:.3f}, Acc:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
-                epoch, train_loss.result(), MOT_metric.get_MOTA(), avg_cost, MOT_metric.get_num_switches()))
+            print("Epoch {:03d}: Loss:{:.3f}, Acc:{:.1%}, Avg embed cost:{:.3f}, Norm Switches:{:.3f}".format(
+                epoch, train_loss.result(), MOT_metric.get_MOTA(), avg_cost, MOT_metric.get_num_switches_norm()))
 
             # Append the results.
             mot_metric_epochs.append(epoch)
             mot_accuracy_results.append(MOT_metric.get_MOTA())
             mot_switches_results.append(MOT_metric.get_num_switches())
+            mot_switches_norm_results.append(MOT_metric.get_num_switches_norm())
             avg_cost_results.append(avg_cost)
         else:
             # Show statistics of the training process.
@@ -273,8 +276,8 @@ def train_model(model, settings, save_directory):
     axes[1].set_ylabel("Accuracy")
     axes[1].plot(mot_metric_epochs, mot_accuracy_results)
 
-    axes[2].set_ylabel("Number of switches")
-    axes[2].plot(mot_metric_epochs, mot_switches_results)
+    axes[2].set_ylabel("Normalized number of switches")
+    axes[2].plot(mot_metric_epochs, mot_switches_norm_results)
 
     axes[3].set_ylabel("Average cost")
     axes[3].set_xlabel("Epoch")
@@ -288,6 +291,7 @@ def train_model(model, settings, save_directory):
     np.savetxt(save_directory + '/mot_epochs.txt', mot_metric_epochs)
     np.savetxt(save_directory + '/mot_accuracy.txt', mot_accuracy_results)
     np.savetxt(save_directory + '/mot_switches.txt', mot_switches_results)
+    np.savetxt(save_directory + '/mot_switches_norm.txt', mot_switches_norm_results)
     np.savetxt(save_directory + '/avg_cost.txt', avg_cost_results)
 
     return model
@@ -311,7 +315,7 @@ class Settings:
     allow_overfit = True
 
     window_size = 3
-    num_combi_per_obj_per_epoch = 10
+    num_combi_per_obj_per_epoch = 10  # Larger or equal to triplet batch.
     triplet_batch = 8  # Number of triplets in one batch.
 
     # Settings for the validation run.
@@ -372,7 +376,7 @@ if __name__ == "__main__":
     # Print some of the statistics.
     print('\nTest results:')
     print('Multi-object tracking accuracy: {:.1%}'.format(MOT_metric.get_MOTA()))
-    print('Multi-object tracking switches: {}'.format(MOT_metric.get_num_switches()))
+    print('Multi-object tracking norm switches: {:.3f}'.format(MOT_metric.get_num_switches_norm()))
     print('Multi-object tracking avg embed cost: {:.3f}'.format(avg_cost))
     print('Multi-object detection precision: {:.1%}'.format(MOT_metric.get_precision()))
     print('Multi-object detection recall: {:.1%}\n'.format(MOT_metric.get_recall()))
