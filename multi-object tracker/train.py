@@ -16,10 +16,11 @@ from data import get_combinations
 from embeds import EmbeddingsDatabase
 from eval import MOTMetric
 from model import TrackNet
+from model_v2 import TrackNetV2
 from model_extension import MultiTrackNet
-from utils import (check_acceptable_splits, export_parameters, get_embeddings,
-                   resize_bb, show_frame_with_ids, show_frame_with_labels,
-                   slice_image)
+from utils import (check_acceptable_splits, export_parameters, resize_bb,
+                   show_frame_with_ids, show_frame_with_labels, slice_image,
+                   get_embeddings, load_overfit_bboxes, show_overfit_statistics)
 
 
 def get_batch(images_file, labels_file, combination, image_size=128):
@@ -73,9 +74,7 @@ def get_batch(images_file, labels_file, combination, image_size=128):
     return image_array, label_array
 
 
-def run_validation(model, detector, images_file, labels_file, sequences_val, memory_length,
-                   memory_update, max_distance, image_size=128, visual=None,
-                   visual_location=None):
+def run_validation(model, settings, image_size=128, visual=None, visual_location=None):
     """Run validation sequence on model.
 
   Args:
@@ -86,16 +85,16 @@ def run_validation(model, detector, images_file, labels_file, sequences_val, mem
     visual: Visualize the frame with bounding boxes and ids.
   """
     mot_metric = MOTMetric(auto_id=True)
-    embeds_database = EmbeddingsDatabase(memory_length, memory_update)
+    embeds_database = EmbeddingsDatabase(settings.memory_length, settings.memory_update)
 
     # Get the label file.
-    with open(labels_file, 'rb') as file:
+    with open(settings.labels_file, 'rb') as file:
         labels_dict = pickle.load(file)
 
     # Open the validation sequence.
-    with h5py.File(images_file, 'r') as sequence:
+    with h5py.File(settings.images_file, 'r') as sequence:
         # Loop over every validation sequence
-        for seq in sequences_val:
+        for seq in settings.sequences_val:
             # Loop over every frame in the current sequence
             for i, frame in enumerate(sequence['seq'+str(seq)]):
                 # Get the ground truth labels for the current frame
@@ -108,7 +107,7 @@ def run_validation(model, detector, images_file, labels_file, sequences_val, mem
                                     label['right'], label['bottom']])
 
                 # Get the embeddings and bouding boxes by running the model
-                if detector:
+                if settings.detector:
                     embeddings, boxes, labels, probs = model(frame)
                     hyp_bbs = np.array(boxes, dtype=int)
                 else:
@@ -116,7 +115,7 @@ def run_validation(model, detector, images_file, labels_file, sequences_val, mem
                     hyp_bbs = obj_bbs.copy()
 
                 # Perform the re-identification
-                hyp_ids = embeds_database.match_embeddings(embeddings, max_distance)
+                hyp_ids = embeds_database.match_embeddings(embeddings, settings.max_distance)
 
                 # Update the MOT metric.
                 mot_metric.update(obj_ids, hyp_ids,
@@ -134,11 +133,7 @@ def run_validation(model, detector, images_file, labels_file, sequences_val, mem
         return mot_metric, embeds_database.get_average_cost()
 
 
-def train_model(model, detector, images_file, labels_file, epochs, learning_rate,
-                window_size, num_combi_per_obj_per_epoch,
-                memory_length, memory_update, max_distance,
-                sequences_train, sequences_val, val_epochs,
-                save_directory):
+def train_model(model, settings, save_directory):
     """Create training loop for the object tracker model.
 
   Args:
@@ -148,7 +143,7 @@ def train_model(model, detector, images_file, labels_file, epochs, learning_rate
     epochs: Number of epochs to train for
     learning_rate: Learning rate of the optimizer
   """
-    print('Training the model for {} epochs...'.format(epochs))
+    print('Training the model for {} epochs...'.format(settings.epochs))
 
     # Create empty list for the metrics.
     train_loss_results = []
@@ -159,18 +154,15 @@ def train_model(model, detector, images_file, labels_file, epochs, learning_rate
     avg_cost_results = []
 
     # Get metric data before training.
-    if detector:
+    if settings.detector:
         tracker = MultiTrackNet(model)
-        MOT_metric, avg_cost = run_validation(tracker, detector, images_file, labels_file,
-                                              sequences_val, memory_length, memory_update,
-                                              max_distance)
+        MOT_metric, avg_cost = run_validation(tracker, settings)
     else:
-        MOT_metric, avg_cost = run_validation(model, detector, images_file, labels_file,
-                                              sequences_val, memory_length, memory_update,
-                                              max_distance)
-    print("Epoch  -1:             Acc:{:.1%}, Precision:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
-        MOT_metric.get_MOTA(), MOT_metric.get_MOTP(),
-        avg_cost, MOT_metric.get_num_switches()))
+        MOT_metric, avg_cost = run_validation(model, settings)
+    
+    print("Epoch -001: Acc:{:.1%}, Precision:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
+                MOT_metric.get_MOTA(), MOT_metric.get_MOTP(), avg_cost, MOT_metric.get_num_switches()))
+    
     mot_metric_epochs.append(-1)
     mot_accuracy_results.append(MOT_metric.get_MOTA())
     mot_precision_results.append(MOT_metric.get_MOTP())
@@ -178,22 +170,37 @@ def train_model(model, detector, images_file, labels_file, epochs, learning_rate
     avg_cost_results.append(avg_cost)
 
     # Define the loss, optimizer and metric(s).
-    loss_object = tfa.losses.TripletSemiHardLoss()
-    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    loss_object = tfa.losses.TripletSemiHardLoss(margin=2.0)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=settings.learning_rate)
     train_loss = tf.keras.metrics.Mean()
 
-    # Training loop.
-    for epoch in range(epochs):
-        # Get all bouding box combinations for this sequence.
-        combinations = get_combinations(labels_file, sequences_train,
-                                        window_size, num_combi_per_obj_per_epoch)
+    # Load the overfit bounding boxes and show them
+    # bboxes = load_overfit_bboxes()
+    # show_overfit_statistics(model, bboxes)
 
-        for combination in combinations:
-            images, labels = get_batch(images_file, labels_file, combination)
+    # Create empty array for image and label batch
+    triplet_batch = settings.triplet_batch
+    image_batch = np.empty((triplet_batch*3, 128, 128, 3), dtype=np.uint8)
+    label_batch = np.empty((triplet_batch*3), dtype=np.float32)
+
+    # Training loop.
+    for epoch in range(settings.epochs):
+        # Get all bouding box combinations for this sequence.
+        combinations = get_combinations(settings.labels_file, settings.sequences_train,
+                                settings.window_size, settings.num_combi_per_obj_per_epoch)
+
+        length = len(combinations)
+        for idx in range(0, length, triplet_batch):
+            batch = combinations[idx:min(idx+triplet_batch, length)]
+
+            for i, comb in enumerate(batch):
+                images, labels = get_batch(settings.images_file, settings.labels_file, comb)
+                image_batch[i*3:i*3+3,:,:,:] = images
+                label_batch[i*3:i*3+3] = labels
 
             with tf.GradientTape() as tape:
-                embeddings = model(images, training=True)
-                loss = loss_object(labels, embeddings)
+                embeddings = model(image_batch, training=True)
+                loss = loss_object(y_true=label_batch, y_pred=embeddings)
                 loss += sum(model.losses)  # Add the L2 regularization loss
 
             gradients = tape.gradient(loss, model.trainable_variables)
@@ -202,18 +209,20 @@ def train_model(model, detector, images_file, labels_file, epochs, learning_rate
             # Track progress.
             train_loss.update_state(loss)
 
-        if epoch % val_epochs == 0:
+        # Show statistics of the training process
+        print("\nEpoch {:03d}: Loss:{:.3f}".format(epoch, train_loss.result()))
+        # show_overfit_statistics(model, bboxes)
+# 
+        # Append the results.
+        train_loss_results.append(train_loss.result())
 
+        if epoch % settings.val_epochs == 0:
             # Run validation program on sequence and get score.
-            if detector:
+            if settings.detector:
                 tracker = MultiTrackNet(model)
-                MOT_metric, avg_cost = run_validation(tracker, detector, images_file, labels_file,
-                                                      sequences_val, memory_length, memory_update,
-                                                      max_distance)
+                MOT_metric, avg_cost = run_validation(tracker, settings)
             else:
-                MOT_metric, avg_cost = run_validation(model, detector, images_file, labels_file,
-                                                      sequences_val, memory_length, memory_update,
-                                                      max_distance)
+                MOT_metric, avg_cost = run_validation(model, settings)
 
             # Print statistics with accuracy and precision
             print("Epoch {:03d}: Loss:{:.3f}, Acc:{:.1%}, Precision:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
@@ -222,18 +231,12 @@ def train_model(model, detector, images_file, labels_file, epochs, learning_rate
                 avg_cost, MOT_metric.get_num_switches()))
 
             # Append the results
-            train_loss_results.append(train_loss.result())
             mot_metric_epochs.append(epoch)
             mot_accuracy_results.append(MOT_metric.get_MOTA())
             mot_precision_results.append(MOT_metric.get_MOTP())
             mot_switches_results.append(MOT_metric.get_num_switches())
             avg_cost_results.append(avg_cost)
-        else:
-            # Print statistics without accuracy and precision
-            print("Epoch {:03d}: Loss:{:.3f}".format(epoch, train_loss.result()))
 
-            # Append the results.
-            train_loss_results.append(train_loss.result())
 
     print('Training completed, exporting results.')
 
@@ -271,39 +274,36 @@ def train_model(model, detector, images_file, labels_file, epochs, learning_rate
 
 
 class Settings:
-    epochs = 101
-    window_size = 2
-    num_combi_per_obj_per_epoch = 1
+    """Class for the settings of the train process."""
+    # Settings for the train process.
+    epochs = 100
+    learning_rate = 0.001  # Should be smaller or equal 0.01
+    l2_reg = 0.0001  # L2 regularization
+    use_dropout = False 
 
-    # Run validation every n epochs.
-    val_epochs = 20
-
+    # Settings for the dataset and triplets
     dataset = 'kitti'
-
     images_file = '../data/kitti_images.h5'
     labels_file = '../data/kitti_labels.bin'
 
-    # Choose train/val/test.
-    sequences_train = [12]
-    sequences_val = [12]
-    sequences_test = [12]
+    sequences_train = [12]  # Sequences for training
+    sequences_val = [12]  # Sequences for validation
+    sequences_test = [12]  # Sequences for testing
     allow_overfit = True
+    
+    window_size = 3
+    num_combi_per_obj_per_epoch = 10
+    triplet_batch = 8  # Number of triplets in one batch
 
-    # Learning rate: <= 0.01.
-    learning_rate = 0.01
-
-    # L2 regularization.
-    l2_reg = 0.001
-
-    # L2 normalization of output vector.
-    l2_norm = True
-
-    # Validation.
+    # Settings for the validation run
     detector = False
     memory_length = 30
     memory_update = 0.75
     max_distance = 0.5
 
+    # Run validation every n epochs.
+    val_epochs = 20
+    
 
 if __name__ == "__main__":
     physical_devices = tf.config.list_physical_devices('GPU')
@@ -318,52 +318,39 @@ if __name__ == "__main__":
     Path(save_directory).mkdir(parents=True, exist_ok=True)
 
     # Select the model and data.
-    model = TrackNet(padding='valid', use_bias=False,
-                     l2_reg=settings.l2_reg, l2_norm=settings.l2_norm)
+    model = TrackNet(use_bias=False, l2_reg=settings.l2_reg, use_dropout=settings.use_dropout)
 
     # Check if choosen split is acceptable.
-    check_acceptable_splits(settings.dataset, settings.sequences_train, settings.sequences_val, settings.sequences_test,
-                            allow_overfit=settings.allow_overfit)
+    check_acceptable_splits(settings.dataset, settings.sequences_train, settings.sequences_val, 
+            settings.sequences_test, allow_overfit=settings.allow_overfit)
 
     # Save training parameters.
-    export_parameters(save_directory, settings.learning_rate, settings.l2_reg, settings.l2_norm,
-                      settings.memory_length, settings.memory_update, settings.max_distance,
-                      settings.window_size, settings.num_combi_per_obj_per_epoch,
-                      settings.sequences_train, settings.sequences_val, settings.sequences_test)
+    export_parameters(save_directory, settings)
 
     print('Amount of combinations per epoch: ', len(get_combinations(
-        settings.labels_file, settings.sequences_train, settings.window_size, settings.num_combi_per_obj_per_epoch)))
+        settings.labels_file, settings.sequences_train, settings.window_size, 
+        settings.num_combi_per_obj_per_epoch)))
 
     # Train the model.
-    model = train_model(model, settings.detector, settings.images_file, settings.labels_file,
-                        settings.epochs, settings.learning_rate,
-                        settings.window_size, settings.num_combi_per_obj_per_epoch,
-                        settings.memory_length, settings.memory_update, settings.max_distance,
-                        settings.sequences_train, settings.sequences_val, settings.val_epochs,
-                        save_directory)
+    model = train_model(model, settings, save_directory)
 
     # Save the weights of the model.
     model_path = save_directory + '/saved_model.ckpt'
     model.save_weights(model_path)
 
     # Load the previously saved weights.
-    new_model = TrackNet(padding='valid', use_bias=False,
-                         l2_reg=settings.l2_reg, l2_norm=settings.l2_norm)
+    new_model = TrackNet(use_bias=False, l2_reg=settings.l2_reg, use_dropout=settings.use_dropout)
     new_model.load_weights(model_path)
 
     if settings.detector:
         # Extend the re-identification model with detection.
         tracker = MultiTrackNet(new_model)
-
+        
         # Run the validation with visualization.
-        MOT_metric, avg_cost = run_validation(tracker, settings.detector, settings.images_file, settings.labels_file,
-                                              settings.sequences_test, settings.memory_length, settings.memory_update,
-                                              settings.max_distance, visual='re-id', visual_location=save_directory)
+        MOT_metric, avg_cost = run_validation(tracker, settings, visual='re-id', visual_location=save_directory)
     else:
         # Run the validation with visualization.
-        MOT_metric, avg_cost = run_validation(new_model, settings.detector, settings.images_file, settings.labels_file,
-                                              settings.sequences_test, settings.memory_length, settings.memory_update,
-                                              settings.max_distance, visual='re-id', visual_location=save_directory)
+        MOT_metric, avg_cost = run_validation(new_model, settings, visual='re-id', visual_location=save_directory)
 
     # Print some of the statistics.
     print('\nTest results:')
