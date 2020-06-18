@@ -3,10 +3,13 @@
 from __future__ import absolute_import, division, print_function
 
 import datetime
+import os
 import pickle
+import re
 from pathlib import Path
 
 import h5py
+import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
@@ -129,6 +132,27 @@ def run_validation(model, settings, image_size=128, visual=None, visual_location
                                         visual_location=visual_location)
                 elif visual == 'detect':
                     show_frame_with_labels(frame, boxes, labels, probs)
+
+            # Create gif.
+            if visual == 're-id':
+                # scene_labels = sorted(np.array(os.listdir(scene_label_dir)))
+                loc = '{}/seq{}'.format(visual_location, str(seq))
+                images = []
+                filenames = sorted(
+                    np.array(os.listdir(loc)))
+
+                for i in range(len(filenames)):
+                    filenames[i] = re.findall(r'\d+', filenames[i])[0]
+
+                filenames = np.array(filenames, dtype=int)
+                filenames = sorted(filenames)
+
+                for i in range(len(filenames)):
+                    filenames[i] = loc + '/frame' + str(filenames[i]) + '.jpg'
+
+                for filename in filenames:
+                    images.append(imageio.imread(filename))
+                imageio.mimsave(loc+'movie.gif', images, duration=0.10)
 
         # Return the MOT metric object
         return mot_metric, embeds_database.get_average_cost()
