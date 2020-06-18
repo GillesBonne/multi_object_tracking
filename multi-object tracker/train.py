@@ -188,7 +188,7 @@ def train_model(model, settings, save_directory):
         settings.labels_file, settings.sequences_train, settings.window_size,
         settings.num_combi_per_obj_per_epoch))))
 
-    print("\nEpoch  -1: Acc:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
+    print("\nEpoch  -1:             Acc:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
         MOT_metric.get_MOTA(), avg_cost, MOT_metric.get_num_switches()))
 
     mot_metric_epochs.append(-1)
@@ -236,13 +236,10 @@ def train_model(model, settings, save_directory):
             # Track progress.
             train_loss.update_state(loss)
 
-        # Show statistics of the training process.
-        print("Epoch {:03d}: Loss:{:.3f}".format(epoch, train_loss.result()))
-
-        # show_overfit_statistics(model, bboxes)
-
         # Append the results.
         train_loss_results.append(train_loss.result())
+
+        # show_overfit_statistics(model, bboxes)
 
         if epoch % settings.val_epochs == 0:
             # Run validation program on sequence and get score.
@@ -252,15 +249,18 @@ def train_model(model, settings, save_directory):
             else:
                 MOT_metric, avg_cost = run_validation(model, settings)
 
-            # Print statistics with accuracy and precision.
+            # Print statistics with accuracy and switches.
             print("Epoch {:03d}: Loss:{:.3f}, Acc:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
-                epoch, train_loss.result(), MOT_metric.get_MOTP(), avg_cost, MOT_metric.get_num_switches()))
+                epoch, train_loss.result(), MOT_metric.get_MOTA(), avg_cost, MOT_metric.get_num_switches()))
 
             # Append the results.
             mot_metric_epochs.append(epoch)
             mot_accuracy_results.append(MOT_metric.get_MOTA())
             mot_switches_results.append(MOT_metric.get_num_switches())
             avg_cost_results.append(avg_cost)
+        else:
+            # Show statistics of the training process.
+            print("Epoch {:03d}: Loss:{:.3f}".format(epoch, train_loss.result()))
 
     print('\nTraining completed, exporting results.')
 
