@@ -9,8 +9,8 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 
-from PIL import Image
 from yolo.utils.box import visualize_boxes
+
 
 def get_embeddings(model, frame, label_dict, image_size=128):
     """Return the embedding of the model for given set of bounding boxes."""
@@ -88,12 +88,12 @@ def show_frame_with_ids(frame, bboxes, ids, frame_num, seq_name, visual_location
                 va='bottom')
 
     # Show the frame with the bounding boxes and ids.
-    if visual_location == None:
+    if visual_location is None:
         plt.show(block=False)
         plt.pause(0.1)
         plt.close()
     else:
-        visual_path = visual_location + '/'+ seq_name
+        visual_path = visual_location + '/' + seq_name
         Path(visual_path).mkdir(parents=True, exist_ok=True)
         fig.savefig('{}/{}/frame{}.jpg'.format(visual_location, seq_name, frame_num))
         plt.close()
@@ -146,30 +146,28 @@ def check_acceptable_splits(dataset, train, val, test, allow_overfit):
         raise ValueError('Function not defined for this dataset. The available dataset is: kitti')
 
 
-def export_parameters(save_directory, learning_rate, l2_reg,
-                      memory_length, memory_update, max_distance,
-                      window_size, num_combi_per_obj_per_epoch,
-                      sequences_train, sequences_val, sequences_test):
+def export_parameters(save_directory, settings):
+    """Save the settings of the current run to file."""
     with open(save_directory+'/config.txt', mode='w') as file:
-        file.write('learning rate: '+str(learning_rate))
+        file.write('learning rate: '+str(settings.learning_rate))
         file.write('\n')
-        file.write('l2 reg: '+str(l2_reg))
+        file.write('l2 reg: '+str(settings.l2_reg))
         file.write('\n')
-        file.write('memory length: '+str(memory_length))
+        file.write('memory length: '+str(settings.memory_length))
         file.write('\n')
-        file.write('memory update: '+str(memory_update))
+        file.write('memory update: '+str(settings.memory_update))
         file.write('\n')
-        file.write('max distance: '+str(max_distance))
+        file.write('max distance: '+str(settings.max_distance))
         file.write('\n')
-        file.write('window size: '+str(window_size))
+        file.write('window size: '+str(settings.window_size))
         file.write('\n')
-        file.write('combi per obj per epoch: '+str(num_combi_per_obj_per_epoch))
+        file.write('combi per obj per epoch: '+str(settings.num_combi_per_obj_per_epoch))
         file.write('\n')
-        file.write('seq train: '+str(sequences_train))
+        file.write('seq train: '+str(settings.sequences_train))
         file.write('\n')
-        file.write('seq val: '+str(sequences_val))
+        file.write('seq val: '+str(settings.sequences_val))
         file.write('\n')
-        file.write('seq test: '+str(sequences_test))
+        file.write('seq test: '+str(settings.sequences_test))
 
 
 def load_overfit_bboxes():
@@ -255,9 +253,4 @@ def show_overfit_statistics(model, bboxes):
     neg_distance = calc_distance(person2_[0], person2_[2])
     print("Person2: Positive:{:.3f}, Negative:{:.3f}, Diff:{:.3f}".format(
         pos_distance, neg_distance, abs(pos_distance-neg_distance)))
-
-
-
-
-
 
