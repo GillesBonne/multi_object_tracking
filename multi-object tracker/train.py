@@ -357,7 +357,7 @@ if __name__ == "__main__":
     Path(save_directory).mkdir(parents=True, exist_ok=True)
 
     # Select the model and data.
-    model = TrackNet(use_bias=False, l2_reg=settings.l2_reg, use_dropout=settings.use_dropout)
+    model = TrackNetV2(use_bias=False, l2_reg=settings.l2_reg, use_dropout=settings.use_dropout)
 
     # Check if choosen split is acceptable.
     check_acceptable_splits(settings.dataset, settings.sequences_train, settings.sequences_val,
@@ -374,7 +374,7 @@ if __name__ == "__main__":
     model.save_weights(model_path)
 
     # Load the previously saved weights.
-    new_model = TrackNet(use_bias=False, l2_reg=settings.l2_reg, use_dropout=settings.use_dropout)
+    new_model = TrackNetV2(use_bias=False, l2_reg=settings.l2_reg, use_dropout=settings.use_dropout)
     new_model.load_weights(model_path)
 
     if settings.detector:
