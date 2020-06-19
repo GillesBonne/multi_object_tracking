@@ -72,7 +72,7 @@ class EmbeddingsDatabase():
             if row_index in row_indices:
                 col_index = col_indices[row_indices.tolist().index(row_index)]
 
-                #print(cost_matrix[row_index, col_index])
+                # print(cost_matrix[row_index, col_index])
 
                 self.update_average_cost(cost_matrix[row_index, col_index])
 

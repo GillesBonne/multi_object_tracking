@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function
 
 import itertools
 import pickle
+import random
 
 import numpy as np
 
@@ -68,6 +69,7 @@ def get_combinations(labels_file, sequences, window_size, num_combi_per_obj_per_
                     combinations.append([seq_key, object_id, frame_anchor, frame_positive,
                                          object_id_compare, frame_negative])
 
+    random.shuffle(combinations)
     return combinations
 
 

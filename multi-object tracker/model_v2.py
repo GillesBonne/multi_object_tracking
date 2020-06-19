@@ -64,27 +64,27 @@ class TrackNetV2(Model):
         self.relu9 = layers.Activation('relu')
 
         self.conv10 = layers.Conv2D(64, kernel_size=(3, 3), strides=(1, 1),
-                                   padding='same', use_bias=use_bias,
-                                   kernel_regularizer=tf.keras.regularizers.l2(l2_reg))
+                                    padding='same', use_bias=use_bias,
+                                    kernel_regularizer=tf.keras.regularizers.l2(l2_reg))
         self.relu10 = layers.Activation('relu')
         self.pool10 = layers.MaxPool2D(pool_size=(2, 2), strides=(2, 2))
         self.drop10 = layers.Dropout(0.3)
 
         self.conv11 = layers.Conv2D(64, kernel_size=(3, 3), strides=(1, 1),
-                                   padding='same', use_bias=use_bias,
-                                   kernel_regularizer=tf.keras.regularizers.l2(l2_reg))
+                                    padding='same', use_bias=use_bias,
+                                    kernel_regularizer=tf.keras.regularizers.l2(l2_reg))
         self.relu11 = layers.Activation('relu')
 
         self.conv12 = layers.Conv2D(64, kernel_size=(3, 3), strides=(1, 1),
-                                   padding='same', use_bias=use_bias,
-                                   kernel_regularizer=tf.keras.regularizers.l2(l2_reg))
+                                    padding='same', use_bias=use_bias,
+                                    kernel_regularizer=tf.keras.regularizers.l2(l2_reg))
         self.relu12 = layers.Activation('relu')
         self.pool12 = layers.MaxPool2D(pool_size=(2, 2), strides=(2, 2))
         self.drop12 = layers.Dropout(0.3)
 
         self.conv13 = layers.Conv2D(64, kernel_size=(3, 3), strides=(1, 1),
-                                   padding='same', use_bias=use_bias,
-                                   kernel_regularizer=tf.keras.regularizers.l2(l2_reg))
+                                    padding='same', use_bias=use_bias,
+                                    kernel_regularizer=tf.keras.regularizers.l2(l2_reg))
         self.relu13 = layers.Activation('relu')
         self.flat13 = layers.Flatten()
         self.dens13 = layers.Dense(128, activation=None)
