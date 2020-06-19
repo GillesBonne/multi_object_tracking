@@ -7,42 +7,42 @@ from tensorflow.keras import Model, layers
 
 
 class TrackNet(Model):
-    def __init__(self, padding, use_bias, l2_reg, l2_norm):
+    def __init__(self, use_bias, l2_reg, use_dropout):
         super(TrackNet, self).__init__()
-        self.l2_norm = l2_norm
+        self.use_dropout = use_dropout
         self.conv1 = layers.Conv2D(32, kernel_size=(3, 3), strides=(1, 1),
-                                   padding=padding, use_bias=use_bias,
+                                   padding='valid', use_bias=use_bias,
                                    kernel_regularizer=tf.keras.regularizers.l2(l2_reg))
         self.relu1 = layers.Activation('relu')
 
         self.conv2 = layers.Conv2D(32, kernel_size=(3, 3), strides=(1, 1),
-                                   padding=padding, use_bias=use_bias,
+                                   padding='valid', use_bias=use_bias,
                                    kernel_regularizer=tf.keras.regularizers.l2(l2_reg))
         self.relu2 = layers.Activation('relu')
         self.pool2 = layers.MaxPool2D(pool_size=(2, 2), strides=(2, 2))
         self.drop2 = layers.Dropout(0.3)
 
         self.conv3 = layers.Conv2D(32, kernel_size=(3, 3), strides=(1, 1),
-                                   padding=padding, use_bias=use_bias,
+                                   padding='valid', use_bias=use_bias,
                                    kernel_regularizer=tf.keras.regularizers.l2(l2_reg))
         self.relu3 = layers.Activation('relu')
 
         self.conv4 = layers.Conv2D(32, kernel_size=(3, 3), strides=(1, 1),
-                                   padding=padding, use_bias=use_bias,
+                                   padding='valid', use_bias=use_bias,
                                    kernel_regularizer=tf.keras.regularizers.l2(l2_reg))
         self.relu4 = layers.Activation('relu')
         self.pool4 = layers.MaxPool2D(pool_size=(2, 2), strides=(2, 2))
         self.drop4 = layers.Dropout(0.3)
 
         self.conv5 = layers.Conv2D(64, kernel_size=(3, 3), strides=(1, 1),
-                                   padding=padding, use_bias=use_bias,
+                                   padding='valid', use_bias=use_bias,
                                    kernel_regularizer=tf.keras.regularizers.l2(l2_reg))
         self.relu5 = layers.Activation('relu')
         self.pool5 = layers.MaxPool2D(pool_size=(2, 2), strides=(2, 2))
         self.drop5 = layers.Dropout(0.3)
 
         self.conv6 = layers.Conv2D(128, kernel_size=(3, 3), strides=(1, 1),
-                                   padding=padding, use_bias=use_bias,
+                                   padding='valid', use_bias=use_bias,
                                    kernel_regularizer=tf.keras.regularizers.l2(l2_reg))
         self.relu6 = layers.Activation('relu')
         self.flat6 = layers.Flatten()
@@ -63,7 +63,7 @@ class TrackNet(Model):
         x = self.conv2(x)
         x = self.relu2(x)
         x = self.pool2(x)
-        x = self.drop2(x)
+        x = self.drop2(x) if self.use_dropout else x
 
         x = self.conv3(x)
         x = self.relu3(x)
@@ -71,16 +71,15 @@ class TrackNet(Model):
         x = self.conv4(x)
         x = self.relu4(x)
         x = self.pool4(x)
-        x = self.drop4(x)
+        x = self.drop4(x) if self.use_dropout else x
 
         x = self.conv5(x)
         x = self.relu5(x)
         x = self.pool5(x)
-        x = self.drop5(x)
+        x = self.drop5(x) if self.use_dropout else x
 
         x = self.conv6(x)
         x = self.relu6(x)
         x = self.flat6(x)
         x = self.dens6(x)
-
-        return self.l2norm(x) if self.l2_norm is True else x
+        return self.l2norm(x)
