@@ -89,7 +89,6 @@ def run_validation(model, settings, image_size=128, visual=None, visual_location
     visual: Visualize the frame with bounding boxes and ids.
   """
     mot_metric = MOTMetric(auto_id=True)
-    embeds_database = EmbeddingsDatabase(settings.memory_length, settings.memory_update)
 
     # Get the label file.
     with open(settings.labels_file, 'rb') as file:
@@ -99,6 +98,9 @@ def run_validation(model, settings, image_size=128, visual=None, visual_location
     with h5py.File(settings.images_file, 'r') as sequence:
         # Loop over every validation sequence
         for seq in settings.sequences_val:
+            # Create embedding database.
+            embeds_database = EmbeddingsDatabase(settings.memory_length, settings.memory_update)
+
             # Loop over every frame in the current sequence
             for i, frame in enumerate(sequence['seq'+str(seq)]):
                 # Get the ground truth labels for the current frame
@@ -154,8 +156,12 @@ def run_validation(model, settings, image_size=128, visual=None, visual_location
                     images.append(imageio.imread(filename))
                 imageio.mimsave(loc+'movie.gif', images, duration=0.10)
 
+            if settings.print_embed_avg:
+                print('Average embedding cost sequence {}: {:.3f}'.format(str(seq),
+                                                                          embeds_database.get_average_cost()))
+
         # Return the MOT metric object
-        return mot_metric, embeds_database.get_average_cost()
+        return mot_metric
 
 
 def train_model(model, settings, save_directory):
@@ -174,14 +180,13 @@ def train_model(model, settings, save_directory):
     mot_accuracy_results = []
     mot_switches_results = []
     mot_switches_norm_results = []
-    avg_cost_results = []
 
     # Get metric data before training.
     if settings.detector:
         tracker = MultiTrackNet(model)
-        MOT_metric, avg_cost = run_validation(tracker, settings)
+        MOT_metric = run_validation(tracker, settings)
     else:
-        MOT_metric, avg_cost = run_validation(model, settings)
+        MOT_metric = run_validation(model, settings)
 
     print('\nTraining the model for {} epochs...'.format(settings.epochs))
 
@@ -189,14 +194,13 @@ def train_model(model, settings, save_directory):
         settings.labels_file, settings.sequences_train, settings.window_size,
         settings.num_combi_per_obj_per_epoch))))
 
-    print("\nEpoch   0:             Acc:{:.1%}, Avg embed cost:{:.3f}, Norm Switches:{:.3f}".format(
-        MOT_metric.get_MOTA(), avg_cost, MOT_metric.get_num_switches_norm()))
+    print("\nEpoch 000:             Acc:{:.1%}, Norm Switches:{:.3f}".format(
+        MOT_metric.get_MOTA(), MOT_metric.get_num_switches_norm()))
 
     mot_metric_epochs.append(0)
     mot_accuracy_results.append(MOT_metric.get_MOTA())
     mot_switches_results.append(MOT_metric.get_num_switches())
     mot_switches_norm_results.append(MOT_metric.get_num_switches_norm())
-    avg_cost_results.append(avg_cost)
 
     # Define the loss, optimizer and metric(s).
     loss_object = tfa.losses.TripletSemiHardLoss(margin=2.0)
@@ -247,28 +251,27 @@ def train_model(model, settings, save_directory):
             # Run validation program on sequence and get score.
             if settings.detector:
                 tracker = MultiTrackNet(model)
-                MOT_metric, avg_cost = run_validation(tracker, settings)
+                MOT_metric = run_validation(tracker, settings)
             else:
-                MOT_metric, avg_cost = run_validation(model, settings)
+                MOT_metric = run_validation(model, settings)
 
             # Print statistics with accuracy and switches.
-            print("Epoch {:03d}: Loss:{:.3f}, Acc:{:.1%}, Avg embed cost:{:.3f}, Norm Switches:{:.3f}".format(
-                epoch, train_loss.result(), MOT_metric.get_MOTA(), avg_cost, MOT_metric.get_num_switches_norm()))
+            print("Epoch {:03d}: Loss:{:.3f}, Acc:{:.1%}, Norm Switches:{:.3f}".format(
+                epoch, train_loss.result(), MOT_metric.get_MOTA(), MOT_metric.get_num_switches_norm()))
 
             # Append the results.
             mot_metric_epochs.append(epoch)
             mot_accuracy_results.append(MOT_metric.get_MOTA())
             mot_switches_results.append(MOT_metric.get_num_switches())
             mot_switches_norm_results.append(MOT_metric.get_num_switches_norm())
-            avg_cost_results.append(avg_cost)
         else:
             # Show statistics of the training process.
             print("Epoch {:03d}: Loss:{:.3f}".format(epoch, train_loss.result()))
 
-    print('\nTraining completed, exporting results.')
+    print('\nTraining completed, exporting results.\n')
 
     # Visualize the results of training.
-    fig, axes = plt.subplots(4, sharex=True, figsize=(14, 10))
+    fig, axes = plt.subplots(3, sharex=True, figsize=(14, 10))
 
     axes[0].set_ylabel("Loss")
     axes[0].plot(train_loss_results)
@@ -277,11 +280,8 @@ def train_model(model, settings, save_directory):
     axes[1].plot(mot_metric_epochs, mot_accuracy_results)
 
     axes[2].set_ylabel("Normalized number of switches")
+    axes[2].set_xlabel("Epoch")
     axes[2].plot(mot_metric_epochs, mot_switches_norm_results)
-
-    axes[3].set_ylabel("Average cost")
-    axes[3].set_xlabel("Epoch")
-    axes[3].plot(mot_metric_epochs, avg_cost_results)
 
     fig.savefig(save_directory + '/metrics.png', bbox_inches='tight')
     plt.close()
@@ -292,7 +292,6 @@ def train_model(model, settings, save_directory):
     np.savetxt(save_directory + '/mot_accuracy.txt', mot_accuracy_results)
     np.savetxt(save_directory + '/mot_switches.txt', mot_switches_results)
     np.savetxt(save_directory + '/mot_switches_norm.txt', mot_switches_norm_results)
-    np.savetxt(save_directory + '/avg_cost.txt', avg_cost_results)
 
     return model
 
@@ -333,6 +332,9 @@ class Settings:
     # Run validation every n epochs.
     val_epochs = 5
 
+    # Toggle printing average embedding cost.
+    print_embed_avg = False
+
 
 if __name__ == "__main__":
     physical_devices = tf.config.list_physical_devices('GPU')
@@ -372,17 +374,16 @@ if __name__ == "__main__":
         tracker = MultiTrackNet(new_model)
 
         # Run the validation with visualization.
-        MOT_metric, avg_cost = run_validation(
+        MOT_metric = run_validation(
             tracker, settings, visual='re-id', visual_location=save_directory)
     else:
         # Run the validation with visualization.
-        MOT_metric, avg_cost = run_validation(
+        MOT_metric = run_validation(
             new_model, settings, visual='re-id', visual_location=save_directory)
 
     # Print some of the statistics.
     print('\nTest results:')
     print('Multi-object tracking accuracy: {:.1%}'.format(MOT_metric.get_MOTA()))
     print('Multi-object tracking norm switches: {:.3f}'.format(MOT_metric.get_num_switches_norm()))
-    print('Multi-object tracking avg embed cost: {:.3f}'.format(avg_cost))
     print('Multi-object detection precision: {:.1%}'.format(MOT_metric.get_precision()))
-    print('Multi-object detection recall: {:.1%}\n'.format(MOT_metric.get_recall()))
+    print('Multi-object detection recall: {:.1%}'.format(MOT_metric.get_recall()))
