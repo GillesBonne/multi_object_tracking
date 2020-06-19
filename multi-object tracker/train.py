@@ -299,10 +299,6 @@ def train_model(model, settings, save_directory):
 
 class Settings:
     """Class for the settings of the train process."""
-    epochs = 21
-    learning_rate = 0.001  # Should be smaller or equal than 0.01.
-    l2_reg = 0.0001
-    use_dropout = False
 
     # Settings for the dataset and triplets.
     dataset = 'kitti'
@@ -314,9 +310,19 @@ class Settings:
     sequences_test = [12]
     allow_overfit = True
 
-    window_size = 3
-    num_combi_per_obj_per_epoch = 10  # Larger or equal to triplet batch.
-    triplet_batch = 8  # Number of triplets in one batch.
+    # Training settings.
+    epochs = 100
+    learning_rate = 0.001  # Should be smaller or equal than 0.01.
+    if allow_overfit:
+        use_dropout = False
+        l2_reg = 0
+    else:
+        use_dropout = True
+        l2_reg = learning_rate / 10
+
+    window_size = 5
+    num_combi_per_obj_per_epoch = 10
+    triplet_batch = num_combi_per_obj_per_epoch  # Number of triplets in one batch.
 
     # Settings for the validation run.
     detector = False
@@ -325,7 +331,7 @@ class Settings:
     max_distance = 0.5
 
     # Run validation every n epochs.
-    val_epochs = 20
+    val_epochs = 5
 
 
 if __name__ == "__main__":
