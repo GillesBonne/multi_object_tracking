@@ -189,10 +189,10 @@ def train_model(model, settings, save_directory):
         settings.labels_file, settings.sequences_train, settings.window_size,
         settings.num_combi_per_obj_per_epoch))))
 
-    print("\nEpoch  -1:             Acc:{:.1%}, Avg embed cost:{:.3f}, Norm Switches:{:.3f}".format(
+    print("\nEpoch   0:             Acc:{:.1%}, Avg embed cost:{:.3f}, Norm Switches:{:.3f}".format(
         MOT_metric.get_MOTA(), avg_cost, MOT_metric.get_num_switches_norm()))
 
-    mot_metric_epochs.append(-1)
+    mot_metric_epochs.append(0)
     mot_accuracy_results.append(MOT_metric.get_MOTA())
     mot_switches_results.append(MOT_metric.get_num_switches())
     mot_switches_norm_results.append(MOT_metric.get_num_switches_norm())
@@ -213,7 +213,7 @@ def train_model(model, settings, save_directory):
     label_batch = np.empty((triplet_batch*3), dtype=np.float32)
 
     # Training loop.
-    for epoch in range(settings.epochs):
+    for epoch in range(1, settings.epochs+1):
         # Get all bouding box combinations for this sequence.
         combinations = get_combinations(settings.labels_file, settings.sequences_train,
                                         settings.window_size, settings.num_combi_per_obj_per_epoch)
