@@ -170,7 +170,7 @@ def train_model(model, settings, save_directory):
     avg_cost_results.append(avg_cost)
 
     # Define the loss, optimizer and metric(s).
-    loss_object = tfa.losses.TripletSemiHardLoss(margin=2.0)
+    loss_object = tfa.losses.TripletSemiHardLoss()
     optimizer = tf.keras.optimizers.Adam(learning_rate=settings.learning_rate)
     train_loss = tf.keras.metrics.Mean()
 
@@ -225,8 +225,7 @@ def train_model(model, settings, save_directory):
                 MOT_metric, avg_cost = run_validation(model, settings)
 
             # Print statistics with accuracy and precision
-            print("Epoch {:03d}: Loss:{:.3f}, Acc:{:.1%}, Precision:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
-                epoch, train_loss.result(),
+            print("Acc:{:.1%}, Precision:{:.1%}, Avg embed cost:{:.3f}, Switches:{}".format(
                 MOT_metric.get_MOTA(), MOT_metric.get_MOTP(),
                 avg_cost, MOT_metric.get_num_switches()))
 
@@ -277,23 +276,23 @@ class Settings:
     """Class for the settings of the train process."""
     # Settings for the train process.
     epochs = 100
-    learning_rate = 0.001  # Should be smaller or equal 0.01
-    l2_reg = 0.0001  # L2 regularization
-    use_dropout = False 
+    learning_rate = 0.0001  # Should be smaller or equal 0.01
+    l2_reg = 0.00001  # L2 regularization
+    use_dropout = False  # True for final model
 
     # Settings for the dataset and triplets
     dataset = 'kitti'
     images_file = '../data/kitti_images.h5'
     labels_file = '../data/kitti_labels.bin'
 
-    sequences_train = [12]  # Sequences for training
-    sequences_val = [12]  # Sequences for validation
-    sequences_test = [12]  # Sequences for testing
+    sequences_train = [13]  # Sequences for training
+    sequences_val = [13]  # Sequences for validation
+    sequences_test = [13]  # Sequences for testing
     allow_overfit = True
     
-    window_size = 3
+    window_size = 5
     num_combi_per_obj_per_epoch = 10
-    triplet_batch = 8  # Number of triplets in one batch
+    triplet_batch = 10  # Number of triplets in one batch
 
     # Settings for the validation run
     detector = False
@@ -302,7 +301,7 @@ class Settings:
     max_distance = 0.5
 
     # Run validation every n epochs.
-    val_epochs = 20
+    val_epochs = 5
     
 
 if __name__ == "__main__":
@@ -318,7 +317,7 @@ if __name__ == "__main__":
     Path(save_directory).mkdir(parents=True, exist_ok=True)
 
     # Select the model and data.
-    model = TrackNet(use_bias=False, l2_reg=settings.l2_reg, use_dropout=settings.use_dropout)
+    model = TrackNetV2(use_bias=False, l2_reg=settings.l2_reg, use_dropout=settings.use_dropout)
 
     # Check if choosen split is acceptable.
     check_acceptable_splits(settings.dataset, settings.sequences_train, settings.sequences_val, 
@@ -335,11 +334,12 @@ if __name__ == "__main__":
     model = train_model(model, settings, save_directory)
 
     # Save the weights of the model.
+    save_directory = 'saved_models/saved_model_2020-06-18_22-33-56'
     model_path = save_directory + '/saved_model.ckpt'
     model.save_weights(model_path)
 
     # Load the previously saved weights.
-    new_model = TrackNet(use_bias=False, l2_reg=settings.l2_reg, use_dropout=settings.use_dropout)
+    new_model = TrackNetV2(use_bias=False, l2_reg=settings.l2_reg, use_dropout=settings.use_dropout)
     new_model.load_weights(model_path)
 
     if settings.detector:
@@ -347,10 +347,10 @@ if __name__ == "__main__":
         tracker = MultiTrackNet(new_model)
         
         # Run the validation with visualization.
-        MOT_metric, avg_cost = run_validation(tracker, settings, visual='re-id', visual_location=save_directory)
+        MOT_metric, avg_cost = run_validation(tracker, settings, visual='re-id')
     else:
         # Run the validation with visualization.
-        MOT_metric, avg_cost = run_validation(new_model, settings, visual='re-id', visual_location=save_directory)
+        MOT_metric, avg_cost = run_validation(new_model, settings, visual='re-id')
 
     # Print some of the statistics.
     print('\nTest results:')
