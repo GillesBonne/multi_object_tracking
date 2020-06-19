@@ -180,6 +180,7 @@ def train_model(model, settings, save_directory):
     mot_accuracy_results = []
     mot_switches_results = []
     mot_switches_norm_results = []
+    mot_id_created_vs_actual_results = []
 
     # Get metric data before training.
     if settings.detector:
@@ -194,13 +195,14 @@ def train_model(model, settings, save_directory):
         settings.labels_file, settings.sequences_train, settings.window_size,
         settings.num_combi_per_obj_per_epoch))))
 
-    print("\nEpoch 000:             Acc:{:.1%}, Norm Switches:{:.3f}".format(
-        MOT_metric.get_MOTA(), MOT_metric.get_num_switches_norm()))
+    print("\nEpoch 000:             Acc:{:.1%}, Norm Switches:{:.3f}, ID metric:{:.3f}".format(
+        MOT_metric.get_MOTA(), MOT_metric.get_num_switches_norm(), MOT_metric.get_num_id_created_vs_actual()))
 
     mot_metric_epochs.append(0)
     mot_accuracy_results.append(MOT_metric.get_MOTA())
     mot_switches_results.append(MOT_metric.get_num_switches())
     mot_switches_norm_results.append(MOT_metric.get_num_switches_norm())
+    mot_id_created_vs_actual_results.append(MOT_metric.get_num_id_created_vs_actual())
 
     # Define the loss, optimizer and metric(s).
     loss_object = tfa.losses.TripletSemiHardLoss(margin=2.0)
@@ -256,14 +258,16 @@ def train_model(model, settings, save_directory):
                 MOT_metric = run_validation(model, settings)
 
             # Print statistics with accuracy and switches.
-            print("Epoch {:03d}: Loss:{:.3f}, Acc:{:.1%}, Norm Switches:{:.3f}".format(
-                epoch, train_loss.result(), MOT_metric.get_MOTA(), MOT_metric.get_num_switches_norm()))
+            print("Epoch {:03d}: Loss:{:.3f}, Acc:{:.1%}, Norm Switches:{:.3f}, ID metric:{:.3f}".format(
+                epoch, train_loss.result(), MOT_metric.get_MOTA(),
+                MOT_metric.get_num_switches_norm(), MOT_metric.get_num_id_created_vs_actual()))
 
             # Append the results.
             mot_metric_epochs.append(epoch)
             mot_accuracy_results.append(MOT_metric.get_MOTA())
             mot_switches_results.append(MOT_metric.get_num_switches())
             mot_switches_norm_results.append(MOT_metric.get_num_switches_norm())
+            mot_id_created_vs_actual_results.append(MOT_metric.get_num_id_created_vs_actual())
         else:
             # Show statistics of the training process.
             print("Epoch {:03d}: Loss:{:.3f}".format(epoch, train_loss.result()))
@@ -271,7 +275,7 @@ def train_model(model, settings, save_directory):
     print('\nTraining completed, exporting results.\n')
 
     # Visualize the results of training.
-    fig, axes = plt.subplots(3, sharex=True, figsize=(14, 10))
+    fig, axes = plt.subplots(4, sharex=True, figsize=(14, 10))
 
     axes[0].set_ylabel("Loss")
     axes[0].plot(train_loss_results)
@@ -280,8 +284,11 @@ def train_model(model, settings, save_directory):
     axes[1].plot(mot_metric_epochs, mot_accuracy_results)
 
     axes[2].set_ylabel("Normalized number of switches")
-    axes[2].set_xlabel("Epoch")
     axes[2].plot(mot_metric_epochs, mot_switches_norm_results)
+
+    axes[3].set_ylabel("ID created vs actual")
+    axes[3].set_xlabel("Epoch")
+    axes[3].plot(mot_metric_epochs, mot_id_created_vs_actual_results)
 
     fig.savefig(save_directory + '/metrics.png', bbox_inches='tight')
     plt.close()
@@ -292,6 +299,7 @@ def train_model(model, settings, save_directory):
     np.savetxt(save_directory + '/mot_accuracy.txt', mot_accuracy_results)
     np.savetxt(save_directory + '/mot_switches.txt', mot_switches_results)
     np.savetxt(save_directory + '/mot_switches_norm.txt', mot_switches_norm_results)
+    np.savetxt(save_directory + '/mot_id_created_vs_actual.txt', mot_id_created_vs_actual_results)
 
     return model
 
@@ -385,5 +393,6 @@ if __name__ == "__main__":
     print('\nTest results:')
     print('Multi-object tracking accuracy: {:.1%}'.format(MOT_metric.get_MOTA()))
     print('Multi-object tracking norm switches: {:.3f}'.format(MOT_metric.get_num_switches_norm()))
+    print('Multi-object tracking ID metric: {:.3f}'.format(MOT_metric.get_num_id_created_vs_actual()))
     print('Multi-object detection precision: {:.1%}'.format(MOT_metric.get_precision()))
     print('Multi-object detection recall: {:.1%}'.format(MOT_metric.get_recall()))
