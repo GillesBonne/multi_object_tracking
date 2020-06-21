@@ -3,6 +3,7 @@
 from __future__ import absolute_import, division, print_function
 
 from pathlib import Path
+from PIL import Image
 
 import cv2
 import matplotlib.patches as patches
@@ -57,7 +58,7 @@ def calc_cosine_sim(v1, v2):
     return abs(np.dot(v1, v2_T) / (np.sqrt(np.dot(v1, v1_T)) * np.sqrt(np.dot(v2, v2_T))))
 
 
-def show_frame_with_ids(frame, bboxes, ids, frame_num, seq_name, visual_location=None):
+def show_frame_with_ids(frame, bboxes, ids, frame_num=0, seq_name='seq0', visual_location=None):
     """Visualize the video frame with bounding boxes and ids.
 
   Args:

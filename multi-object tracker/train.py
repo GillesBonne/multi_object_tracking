@@ -195,7 +195,7 @@ def train_model(model, settings, save_directory):
         settings.labels_file, settings.sequences_train, settings.window_size,
         settings.num_combi_per_obj_per_epoch))))
 
-    print("\nEpoch 000:             Acc:{:.1%}, Norm Switches:{:.3f}, ID metric:{:.3f}".format(
+    print("\nEpoch 000: Acc:{:.1%}, Norm Switches:{:.3f}, ID metric:{:.3f}".format(
         MOT_metric.get_MOTA(), MOT_metric.get_num_switches_norm(), MOT_metric.get_num_id_created_vs_actual()))
 
     mot_metric_epochs.append(0)
@@ -209,12 +209,7 @@ def train_model(model, settings, save_directory):
     optimizer = tf.keras.optimizers.Adam(learning_rate=settings.learning_rate)
     train_loss = tf.keras.metrics.Mean()
 
-    # Load the overfit bounding boxes and show them.
-    # bboxes = load_overfit_bboxes()
-    # show_overfit_statistics(model, bboxes)
-
     # Create empty array for image and label batch.
-    triplet_batch = settings.triplet_batch
     image_batch = np.empty((triplet_batch*3, 128, 128, 3), dtype=np.uint8)
     label_batch = np.empty((triplet_batch*3), dtype=np.float32)
 
@@ -244,9 +239,12 @@ def train_model(model, settings, save_directory):
             # Track progress.
             train_loss.update_state(loss)
 
+        # Save the weights of the model.
+        model_path = save_directory + '/saved_model_epoch_{}.ckpt'.format(epoch)
+        model.save_weights(model_path)
+
         # Append the results.
         train_loss_results.append(train_loss.result())
-
         # show_overfit_statistics(model, bboxes)
 
         if epoch % settings.val_epochs == 0:
@@ -306,25 +304,20 @@ def train_model(model, settings, save_directory):
 
 class Settings:
     """Class for the settings of the train process."""
-    # Settings for the train process.
-    epochs = 100
-    learning_rate = 0.0001  # Should be smaller or equal 0.01
-    l2_reg = 0.00001  # L2 regularization
-    use_dropout = False  # True for final model
-
+    
     # Settings for the dataset and triplets.
     dataset = 'kitti'
     images_file = '../data/kitti_images.h5'
     labels_file = '../data/kitti_labels.bin'
 
-    sequences_train = [12]
-    sequences_val = [12]
-    sequences_test = [12]
-    allow_overfit = True
+    sequences_train = [0, 1, 2, 3, 5, 6, 7, 8, 10, 11, 14, 15, 16, 17, 18, 20]
+    sequences_val = [9]
+    sequences_test = [4, 9, 12, 13, 19]
+    allow_overfit = False
 
     # Training settings.
     epochs = 100
-    learning_rate = 0.001  # Should be smaller or equal than 0.01.
+    learning_rate = 0.0001  # Should be smaller or equal than 0.01.
     if allow_overfit:
         use_dropout = False
         l2_reg = 0
@@ -333,7 +326,7 @@ class Settings:
         l2_reg = learning_rate / 10
 
     window_size = 5
-    num_combi_per_obj_per_epoch = 10
+    num_combi_per_obj_per_epoch = 8
     triplet_batch = num_combi_per_obj_per_epoch  # Number of triplets in one batch.
 
     # Settings for the validation run.
@@ -364,10 +357,6 @@ if __name__ == "__main__":
     # Select the model and data.
     model = TrackNetV2(use_bias=False, l2_reg=settings.l2_reg, use_dropout=settings.use_dropout)
 
-    # Check if choosen split is acceptable.
-    check_acceptable_splits(settings.dataset, settings.sequences_train, settings.sequences_val,
-                            settings.sequences_test, allow_overfit=settings.allow_overfit)
-
     # Save training parameters.
     export_parameters(save_directory, settings)
 
@@ -375,7 +364,6 @@ if __name__ == "__main__":
     model = train_model(model, settings, save_directory)
 
     # Save the weights of the model.
-    save_directory = 'saved_models/saved_model_2020-06-18_22-33-56'
     model_path = save_directory + '/saved_model.ckpt'
     model.save_weights(model_path)
 
